@@ -277,10 +277,10 @@ class _LoginState extends State<Login> {
               ),
             ),
             const SizedBox(height: 24),
-            Text('Username', style: _fieldLabelStyle()),
+            Text('Email', style: _fieldLabelStyle()),
             const SizedBox(height: 8),
             TextFieldCustom(
-              hintText: 'Masukkan username',
+              hintText: 'Masukkan email',
               lebel: '',
               controller: controller.usernameC,
               validator: controller.validateUsername,

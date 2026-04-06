@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -9,6 +11,8 @@ import 'feature/reports/reports_model.dart';
 import 'feature/rules/rules_model.dart';
 import 'feature/symptoms/symptoms_model.dart';
 import 'feature/users/users_model.dart';
+
+part 'core/services/auth_service.dart';
 
 part 'feature/login/login_controller.dart';
 

@@ -9,6 +9,8 @@ class SignupController extends GetxController {
   final isConfirmPasswordHidden = true.obs;
   final isLoading = false.obs;
 
+  final AuthService _authService = AuthService.instance;
+
   @override
   void onInit() {
     super.onInit();
@@ -39,10 +41,10 @@ class SignupController extends GetxController {
 
   String? validateUsername(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Username wajib diisi';
+      return 'Email wajib diisi';
     }
-    if (value.trim().length < 3) {
-      return 'Username minimal 3 karakter';
+    if (!GetUtils.isEmail(value.trim())) {
+      return 'Format email tidak valid';
     }
     return null;
   }
@@ -68,10 +70,28 @@ class SignupController extends GetxController {
   }
 
   Future<void> signup() async {
+    if (passwordC.text.trim() != confirmPasswordC.text.trim()) {
+      Get.snackbar(
+        'Validasi',
+        'Password dan konfirmasi password tidak sama',
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+      return;
+    }
+
     isLoading.value = true;
 
     try {
-      await Future.delayed(const Duration(milliseconds: 1200));
+      final email = usernameC.text.trim();
+      final password = passwordC.text.trim();
+
+      await _authService.signUp(
+        email: email,
+        password: password,
+        username: email.split('@').first,
+        role: 'user',
+      );
 
       Get.snackbar(
         'Pendaftaran berhasil',
@@ -85,6 +105,33 @@ class SignupController extends GetxController {
       confirmPasswordC.clear();
 
       Get.off(() => const Login());
+    } on FirebaseAuthException catch (e) {
+      String message = 'Pendaftaran gagal';
+      switch (e.code) {
+        case 'email-already-in-use':
+          message = 'Email sudah terdaftar';
+          break;
+        case 'invalid-email':
+          message = 'Format email tidak valid';
+          break;
+        case 'weak-password':
+          message = 'Password terlalu lemah';
+          break;
+      }
+
+      Get.snackbar(
+        'Pendaftaran gagal',
+        message,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Pendaftaran gagal',
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
     } finally {
       isLoading.value = false;
     }

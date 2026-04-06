@@ -186,7 +186,7 @@ class _SignupState extends State<Signup> {
             Text('Password', style: _fieldLabelStyle()),
             const SizedBox(height: 8),
             Obx(
-              () => TextFieldCustom(
+                  () => TextFieldCustom(
                 hintText: 'Masukkan password',
                 lebel: '',
                 controller: controller.passwordC,
@@ -201,6 +201,9 @@ class _SignupState extends State<Signup> {
                   horizontal: 16,
                   vertical: 16,
                 ),
+                onChanged: (_) {
+                  _formKey.currentState?.validate();
+                },
                 suffixIcon: IconButton(
                   onPressed: controller.togglePasswordVisibility,
                   icon: Icon(
@@ -215,7 +218,7 @@ class _SignupState extends State<Signup> {
             Text('Konfirmasi Password', style: _fieldLabelStyle()),
             const SizedBox(height: 8),
             Obx(
-              () => TextFieldCustom(
+                  () => TextFieldCustom(
                 hintText: 'Ulangi password',
                 lebel: '',
                 controller: controller.confirmPasswordC,
@@ -230,6 +233,9 @@ class _SignupState extends State<Signup> {
                   horizontal: 16,
                   vertical: 16,
                 ),
+                onChanged: (_) {
+                  _formKey.currentState?.validate();
+                },
                 suffixIcon: IconButton(
                   onPressed: controller.toggleConfirmPasswordVisibility,
                   icon: Icon(
@@ -246,7 +252,13 @@ class _SignupState extends State<Signup> {
                 width: double.infinity,
                 child: ReusableButton(
                   label: controller.isLoading.value ? 'Memproses...' : 'Daftar',
-                  onTap: controller.isLoading.value ? () {} : controller.signup,
+                  onTap: controller.isLoading.value
+                      ? () {}
+                      : () {
+                    final isValid = _formKey.currentState?.validate() ?? false;
+                    if (!isValid) return;
+                    controller.signup();
+                  },
                   backgroundColor: const Color(0xFF0F5EF7),
                   textColor: Colors.white,
                   fontWeight: FontWeight.w700,

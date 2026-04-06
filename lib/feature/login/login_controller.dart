@@ -8,11 +8,13 @@ class LoginController extends GetxController {
   final isRememberMe = false.obs;
   final isLoading = false.obs;
 
+  final AuthService _authService = AuthService.instance;
+
   @override
   void onInit() {
     super.onInit();
     usernameC = TextEditingController();
-    passwordC = TextEditingController(text: '123456');
+    passwordC = TextEditingController();
   }
 
   @override
@@ -45,10 +47,10 @@ class LoginController extends GetxController {
 
   String? validateUsername(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Username wajib diisi';
+      return 'Email wajib diisi';
     }
-    if (value.trim().length < 3) {
-      return 'Username minimal 3 karakter';
+    if (!GetUtils.isEmail(value.trim())) {
+      return 'Format email tidak valid';
     }
     return null;
   }
@@ -67,25 +69,35 @@ class LoginController extends GetxController {
     isLoading.value = true;
 
     try {
-      await Future.delayed(const Duration(milliseconds: 1000));
-
-      final username = usernameC.text.trim();
+      final email = usernameC.text.trim();
       final password = passwordC.text.trim();
 
-      final role = _getRoleFromCredential(
-        username: username,
+      final credential = await _authService.signIn(
+        email: email,
         password: password,
       );
 
-      if (role == null) {
+      final uid = credential.user?.uid;
+      if (uid == null) {
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'User tidak ditemukan',
+        );
+      }
+
+      final roleString = await _authService.getUserRole(uid);
+
+      if (roleString == null) {
         Get.snackbar(
           'Login gagal',
-          'Username atau password tidak sesuai',
+          'Role user tidak ditemukan di database',
           snackPosition: SnackPosition.BOTTOM,
           margin: const EdgeInsets.all(16),
         );
         return;
       }
+
+      final role = _mapRole(roleString);
 
       Get.snackbar(
         'Berhasil',
@@ -94,30 +106,53 @@ class LoginController extends GetxController {
         margin: const EdgeInsets.all(16),
       );
 
-      Get.offAll(() => Dashboard(role: role))!.whenComplete(() {
-        usernameC.clear();
-        // passwordC.clear();
-      });
+      usernameC.clear();
+      passwordC.clear();
+
+      Get.offAll(() => Dashboard(role: role));
+    } on FirebaseAuthException catch (e) {
+      String message = 'Login gagal';
+      switch (e.code) {
+        case 'invalid-credential':
+          message = 'Email atau password salah';
+          break;
+        case 'user-not-found':
+          message = 'User tidak ditemukan';
+          break;
+        case 'wrong-password':
+          message = 'Password salah';
+          break;
+        case 'invalid-email':
+          message = 'Format email tidak valid';
+          break;
+      }
+
+      Get.snackbar(
+        'Login gagal',
+        message,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Login gagal',
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
     } finally {
       isLoading.value = false;
     }
   }
 
-  Role? _getRoleFromCredential({
-    required String username,
-    required String password,
-  }) {
-    if (password != '123456') return null;
-
-    switch (username.toLowerCase()) {
-      case 'user':
-        return Role.user;
-      case 'pakar':
-        return Role.pakar;
+  Role _mapRole(String role) {
+    switch (role.toLowerCase()) {
       case 'admin':
         return Role.admin;
+      case 'pakar':
+        return Role.pakar;
       default:
-        return null;
+        return Role.user;
     }
   }
 }
