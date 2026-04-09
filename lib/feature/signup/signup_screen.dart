@@ -10,6 +10,7 @@ class Signup extends StatefulWidget {
 class _SignupState extends State<Signup> {
   late final SignupController controller;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
   @override
   void initState() {
     super.initState();
@@ -183,10 +184,46 @@ class _SignupState extends State<Signup> {
               ),
             ),
             const SizedBox(height: 18),
+            Text('Role', style: _fieldLabelStyle()),
+            const SizedBox(height: 8),
+            Obx(
+              () => DropdownButtonFormField<String>(
+                value: controller.selectedRole.value,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Colors.transparent),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Colors.transparent),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(
+                      color: Colors.transparent,
+                      width: 1.4,
+                    ),
+                  ),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'user', child: Text('User')),
+                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                ],
+                onChanged: controller.setRole,
+              ),
+            ),
+            const SizedBox(height: 18),
             Text('Password', style: _fieldLabelStyle()),
             const SizedBox(height: 8),
             Obx(
-                  () => TextFieldCustom(
+              () => TextFieldCustom(
                 hintText: 'Masukkan password',
                 lebel: '',
                 controller: controller.passwordC,
@@ -218,7 +255,7 @@ class _SignupState extends State<Signup> {
             Text('Konfirmasi Password', style: _fieldLabelStyle()),
             const SizedBox(height: 8),
             Obx(
-                  () => TextFieldCustom(
+              () => TextFieldCustom(
                 hintText: 'Ulangi password',
                 lebel: '',
                 controller: controller.confirmPasswordC,
@@ -255,10 +292,11 @@ class _SignupState extends State<Signup> {
                   onTap: controller.isLoading.value
                       ? () {}
                       : () {
-                    final isValid = _formKey.currentState?.validate() ?? false;
-                    if (!isValid) return;
-                    controller.signup();
-                  },
+                          final isValid =
+                              _formKey.currentState?.validate() ?? false;
+                          if (!isValid) return;
+                          controller.signup();
+                        },
                   backgroundColor: const Color(0xFF0F5EF7),
                   textColor: Colors.white,
                   fontWeight: FontWeight.w700,

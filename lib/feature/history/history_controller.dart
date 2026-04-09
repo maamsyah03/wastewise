@@ -6,41 +6,90 @@ class HistoryController extends GetxController {
   final currentPage = 1.obs;
   final pageSize = 5;
 
-  final histories = <HistoryItem>[
-    const HistoryItem(
-      date: '2026-03-24',
-      result: 'Sampah Organik',
-      recommendation: 'Pisahkan dari plastik',
-      status: 'Selesai',
-    ),
-    const HistoryItem(
-      date: '2026-03-20',
-      result: 'Sampah Kertas',
-      recommendation: 'Simpan untuk daur ulang',
-      status: 'Selesai',
-    ),
-    const HistoryItem(
-      date: '2026-03-16',
-      result: 'Sampah Logam',
-      recommendation: 'Pisahkan ke bank sampah',
-      status: 'Selesai',
-    ),
-  ].obs;
+  final histories = <HistoryItem>[].obs;
+
+  final ConsultationService _service = ConsultationService.instance;
+  final AuthService _authService = AuthService.instance;
+
+  StreamSubscription<List<Map<String, dynamic>>>? _historySubscription;
 
   @override
   void onInit() {
     super.onInit();
-    loadInitialData();
+    debugPrint('========== HISTORY CONTROLLER INIT ==========');
+    listenHistory();
   }
 
-  Future<void> loadInitialData() async {
-    isLoading.value = true;
-    await Future.delayed(const Duration(milliseconds: 700));
-    isLoading.value = false;
+  Future<void> listenHistory() async {
+    debugPrint('========== LISTEN HISTORY START ==========');
+
+    try {
+      isLoading.value = true;
+
+      final user = _authService.currentUser;
+      debugPrint('[HISTORY] currentUser = ${user?.uid}');
+      debugPrint('[HISTORY] currentUser email = ${user?.email}');
+
+      if (user == null) {
+        debugPrint('[HISTORY][ERROR] User login tidak ditemukan');
+        isLoading.value = false;
+        return;
+      }
+
+      await _historySubscription?.cancel();
+
+      _historySubscription = _service.streamUserHistory(user.uid).listen(
+            (data) {
+          debugPrint('[HISTORY][STREAM] total data = ${data.length}');
+          debugPrint('[HISTORY][STREAM] raw data = $data');
+
+          histories.assignAll(
+            data.map((e) {
+              final timestamp = e['createdAt'] as Timestamp?;
+              final date = timestamp != null
+                  ? timestamp.toDate().toString().split(' ')[0]
+                  : '-';
+
+              return HistoryItem(
+                date: date,
+                result: (e['result'] ?? '-').toString(),
+                recommendation: (e['recommendation'] ?? '-').toString(),
+                status: 'Selesai',
+              );
+            }).toList(),
+          );
+
+          if (currentPage.value > totalPages) {
+            currentPage.value = totalPages;
+          }
+
+          isLoading.value = false;
+          debugPrint('[HISTORY][STREAM] histories assigned = ${histories.length}');
+        },
+        onError: (error, stackTrace) {
+          debugPrint('[HISTORY][STREAM ERROR] $error');
+          debugPrint('[HISTORY][STREAM STACKTRACE] $stackTrace');
+          isLoading.value = false;
+
+          Get.snackbar(
+            'Error',
+            'Gagal memantau history realtime',
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        },
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[HISTORY][ERROR] $e');
+      debugPrint('[HISTORY][STACKTRACE] $stackTrace');
+      isLoading.value = false;
+    } finally {
+      debugPrint('========== LISTEN HISTORY END ==========');
+    }
   }
 
   List<HistoryItem> get filteredItems {
-    final keyword = searchC.text.trim().toLowerCase();
+    final keyword = searchC.text.toLowerCase().trim();
+
     if (keyword.isEmpty) return histories;
 
     return histories.where((item) {
@@ -51,16 +100,17 @@ class HistoryController extends GetxController {
   }
 
   int get totalPages {
-    final total = filteredItems.length;
-    if (total == 0) return 1;
-    return (total / pageSize).ceil();
+    final total = (filteredItems.length / pageSize).ceil();
+    return total < 1 ? 1 : total;
   }
 
   List<HistoryItem> get paginatedItems {
     final data = filteredItems;
     final start = (currentPage.value - 1) * pageSize;
-    final end = (start + pageSize) > data.length ? data.length : start + pageSize;
+
     if (start >= data.length) return [];
+
+    final end = (start + pageSize).clamp(0, data.length);
     return data.sublist(start, end);
   }
 
@@ -78,6 +128,8 @@ class HistoryController extends GetxController {
 
   @override
   void onClose() {
+    debugPrint('========== HISTORY CONTROLLER CLOSE ==========');
+    _historySubscription?.cancel();
     searchC.dispose();
     super.onClose();
   }

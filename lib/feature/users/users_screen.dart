@@ -18,13 +18,8 @@ class _UsersScreenState extends State<UsersScreen> {
         : Get.put(UsersController());
   }
 
-  bool _isMobile(BuildContext context) =>
-      MediaQuery.of(context).size.width < 760;
-
   @override
   Widget build(BuildContext context) {
-    final isMobile = _isMobile(context);
-
     return Obx(() {
       return SingleChildScrollView(
         child: DashboardCard(
@@ -36,32 +31,7 @@ class _UsersScreenState extends State<UsersScreen> {
                 subtitle: 'Tambah, edit, hapus, dan cari akun pengguna.',
               ),
               const SizedBox(height: 20),
-              isMobile
-                  ? Column(
-                children: [
-                  _buildSearchField(),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ActionButton(
-                      label: 'Tambah Pengguna',
-                      icon: Icons.add,
-                      onTap: controller.openAddDialog,
-                    ),
-                  ),
-                ],
-              )
-                  : Row(
-                children: [
-                  Expanded(child: _buildSearchField()),
-                  const SizedBox(width: 12),
-                  ActionButton(
-                    label: 'Tambah Pengguna',
-                    icon: Icons.add,
-                    onTap: controller.openAddDialog,
-                  ),
-                ],
-              ),
+              _buildSearchField(),
               const SizedBox(height: 20),
               if (controller.isLoading.value)
                 const CircularIndicator()
@@ -74,66 +44,66 @@ class _UsersScreenState extends State<UsersScreen> {
                   onPressed: controller.openAddDialog,
                 )
               else ...[
-                  TableData<UserManagementItem>(
-                    items: controller.paginatedUsers,
-                    columns: [
-                      AppTableColumn<UserManagementItem>(
-                        title: 'ID',
-                        width: 60,
-                        cellBuilder: (item) => Text(item.id.toString()),
+                TableData<UserManagementItem>(
+                  columnSpacing: 15,
+                  items: controller.paginatedUsers,
+                  columns: [
+                    AppTableColumn<UserManagementItem>(
+                      title: 'ID',
+                      width: 60,
+                      cellBuilder: (item) => Text( item.id.toString()),
+                    ),
+                    AppTableColumn<UserManagementItem>(
+                      title: 'Nama',
+                      width: 220,
+                      cellBuilder: (item) => Text( capitalize(item.name),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      AppTableColumn<UserManagementItem>(
-                        title: 'Nama',
-                        width: 220,
-                        cellBuilder: (item) => Text(
-                          item.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                    ),
+                    AppTableColumn<UserManagementItem>(
+                      title: 'Email',
+                      width: 300,
+                      cellBuilder: (item) => Text(
+                        item.email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      AppTableColumn<UserManagementItem>(
-                        title: 'Username',
-                        width: 180,
-                        cellBuilder: (item) => Text(
-                          item.username,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                    ),
+                    AppTableColumn<UserManagementItem>(
+                      title: 'Role',
+                      width: 120,
+                      cellBuilder: (item) => Text(item.role),
+                    ),
+                    AppTableColumn<UserManagementItem>(
+                      title: 'Status',
+                      width: 120,
+                      cellBuilder: (item) => Text(item.status),
+                    ),
+                  ],
+                  actionBuilder: (item) => Row(
+                    children: [
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => controller.openEditDialog(item),
+                        icon: const Icon(Icons.edit_outlined),
                       ),
-                      AppTableColumn<UserManagementItem>(
-                        title: 'Role',
-                        width: 120,
-                        cellBuilder: (item) => Text(item.role),
-                      ),
-                      AppTableColumn<UserManagementItem>(
-                        title: 'Status',
-                        width: 120,
-                        cellBuilder: (item) => Text(item.status),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => controller.deleteUser(item),
+                        icon: const Icon(Icons.delete_outline),
                       ),
                     ],
-                    actionBuilder: (item) => Row(
-                      children: [
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () => controller.openEditDialog(item),
-                          icon: const Icon(Icons.edit_outlined),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () => controller.deleteUser(item),
-                          icon: const Icon(Icons.delete_outline),
-                        ),
-                      ],
-                    ),
                   ),
-                  const SizedBox(height: 16),
-                  Pagination(
-                    currentPage: controller.currentPage.value,
-                    totalPages: controller.totalPages,
-                    onPrev: controller.prevPage,
-                    onNext: controller.nextPage,
-                  ),
-                ],
+                ),
+                const SizedBox(height: 16),
+                Pagination(
+                  currentPage: controller.currentPage.value,
+                  totalPages: controller.totalPages,
+                  onPrev: controller.prevPage,
+                  onNext: controller.nextPage,
+                ),
+              ],
             ],
           ),
         ),
@@ -143,7 +113,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
   Widget _buildSearchField() {
     return TextFieldCustom(
-      hintText: 'Cari nama, username, role, status...',
+      hintText: 'Cari nama, email, role, status...',
       lebel: '',
       controller: controller.searchC,
       cursorHeight: 20,
@@ -151,25 +121,11 @@ class _UsersScreenState extends State<UsersScreen> {
       fillColor: const Color(0xFFF8FAFC),
       hintColor: Colors.grey,
       borderRadius: 16,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 16,
-      ),
-      prefixIcon: const Icon(
-        Icons.search,
-        color: Color(0xFF667085),
-        size: 20,
-      ),
-      enabledBorderSide: const BorderSide(
-        color: Color(0xFFD0D5DD),
-      ),
-      focusedBorderSide: const BorderSide(
-        color: Color(0xFF0F5EF7),
-        width: 1.4,
-      ),
-      errorBorderSide: const BorderSide(
-        color: Colors.red,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      prefixIcon: const Icon(Icons.search, color: Color(0xFF667085), size: 20),
+      enabledBorderSide: const BorderSide(color: Color(0xFFD0D5DD)),
+      focusedBorderSide: const BorderSide(color: Color(0xFF0F5EF7), width: 1.4),
+      errorBorderSide: const BorderSide(color: Colors.red),
     );
   }
 }

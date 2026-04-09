@@ -5,21 +5,16 @@ class ConsultationController extends GetxController {
 
   final isLoading = false.obs;
   final isSubmitting = false.obs;
+
   final selectedSymptoms = <String>[].obs;
   final result = Rxn<ConsultationResult>();
 
-  final symptoms = <String>[
-    'Basah',
-    'Berbau',
-    'Mudah membusuk',
-    'Kering',
-    'Keras',
-    'Plastik',
-    'Kaca',
-    'Kertas',
-    'Beracun',
-    'Logam',
-  ].obs;
+  final symptoms = <String>[].obs;
+
+  final ConsultationService _service = ConsultationService.instance;
+  final AuthService _authService = AuthService.instance;
+
+  List<Map<String, dynamic>> rules = [];
 
   @override
   void onInit() {
@@ -28,9 +23,16 @@ class ConsultationController extends GetxController {
   }
 
   Future<void> loadInitialData() async {
-    isLoading.value = true;
-    await Future.delayed(const Duration(milliseconds: 700));
-    isLoading.value = false;
+    try {
+      isLoading.value = true;
+
+      symptoms.value = await _service.getSymptoms();
+      rules = await _service.getRules();
+    } catch (e) {
+      Get.snackbar('Error', 'Gagal load data');
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   List<String> get filteredSymptoms {
@@ -50,90 +52,76 @@ class ConsultationController extends GetxController {
 
   Future<void> submitConsultation() async {
     if (selectedSymptoms.isEmpty) {
-      Get.snackbar(
-        'Validasi',
-        'Pilih minimal satu gejala.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Get.snackbar('Validasi', 'Pilih minimal satu gejala.');
       return;
     }
 
     isSubmitting.value = true;
+    debugPrint('========== SUBMIT CONSULTATION START ==========');
 
     try {
-      await Future.delayed(const Duration(seconds: 1));
+      final res = _generateResultFromRules(selectedSymptoms);
+      result.value = res;
 
-      result.value = _generateResult(selectedSymptoms);
+      final user = _authService.currentUser;
+      debugPrint('[CONSULTATION] currentUser = ${user?.uid}');
+      debugPrint('[CONSULTATION] result = ${res.category}');
+      debugPrint('[CONSULTATION] recommendation = ${res.recommendation}');
+      debugPrint('[CONSULTATION] selectedSymptoms = $selectedSymptoms');
 
-      Get.snackbar(
-        'Berhasil',
-        'Hasil konsultasi berhasil ditampilkan.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      if (user != null) {
+        await _service.saveConsultation(
+          userId: user.uid,
+          symptoms: selectedSymptoms,
+          result: res.category,
+          recommendation: res.recommendation,
+        );
+
+        debugPrint('[CONSULTATION] consultation saved to firestore');
+
+        if (Get.isRegistered<DashboardController>()) {
+          debugPrint('[CONSULTATION] refreshing DashboardController...');
+          await Get.find<DashboardController>().loadUserDashboard();
+        }
+      }
+
+      Get.snackbar('Berhasil', 'Hasil konsultasi disimpan');
+      debugPrint('========== SUBMIT CONSULTATION SUCCESS ==========');
+    } catch (e, stackTrace) {
+      debugPrint('[CONSULTATION][ERROR] $e');
+      debugPrint('[CONSULTATION][STACKTRACE] $stackTrace');
+      Get.snackbar('Error', 'Gagal proses konsultasi');
     } finally {
       isSubmitting.value = false;
+      debugPrint('========== SUBMIT CONSULTATION END ==========');
     }
   }
 
-  ConsultationResult _generateResult(List<String> selected) {
-    final lower = selected.map((e) => e.toLowerCase()).toList();
+  ConsultationResult _generateResultFromRules(List<String> selected) {
+    for (final rule in rules) {
+      final condition = (rule['condition'] ?? '').toString().toLowerCase();
+      final result = (rule['result'] ?? '').toString();
 
-    final isOrganic =
-        lower.contains('basah') ||
-            lower.contains('berbau') ||
-            lower.contains('mudah membusuk');
-
-    final isB3 = lower.contains('beracun');
-
-    final isAnorganic =
-        lower.contains('plastik') ||
-            lower.contains('kaca') ||
-            lower.contains('logam') ||
-            lower.contains('keras') ||
-            lower.contains('kering') ||
-            lower.contains('kertas');
-
-    if (isB3) {
-      return ConsultationResult(
-        title: 'Hasil Konsultasi',
-        category: 'Sampah B3',
-        recommendation:
-        'Pisahkan dari sampah rumah tangga biasa dan serahkan ke pengelola limbah khusus agar aman.',
-        selectedSymptoms: List<String>.from(selected),
+      final matched = selected.every(
+        (symptom) => condition.contains(symptom.toLowerCase()),
       );
-    }
 
-    if (isOrganic && !isAnorganic) {
-      return ConsultationResult(
-        title: 'Hasil Konsultasi',
-        category: 'Sampah Organik',
-        recommendation:
-        'Disarankan dikelola melalui kompos, biokonversi, atau pemisahan sampah organik rumah tangga.',
-        selectedSymptoms: List<String>.from(selected),
-      );
-    }
-
-    if (isAnorganic && !isOrganic) {
-      return ConsultationResult(
-        title: 'Hasil Konsultasi',
-        category: 'Sampah Anorganik',
-        recommendation:
-        'Pisahkan untuk didaur ulang atau dikumpulkan ke bank sampah sesuai jenis materialnya.',
-        selectedSymptoms: List<String>.from(selected),
-      );
+      if (matched) {
+        return ConsultationResult(
+          title: 'Hasil Konsultasi',
+          category: result,
+          recommendation: 'Rekomendasi berdasarkan rule pakar',
+          selectedSymptoms: selected,
+        );
+      }
     }
 
     return ConsultationResult(
       title: 'Hasil Konsultasi',
-      category: 'Perlu Identifikasi Lanjutan',
-      recommendation:
-      'Gejala yang dipilih menunjukkan campuran kategori. Disarankan pemilahan lebih detail sebelum pengelolaan.',
-      selectedSymptoms: List<String>.from(selected),
+      category: 'Tidak ditemukan',
+      recommendation: 'Tidak ada rule yang cocok',
+      selectedSymptoms: selected,
     );
-  }
-
-  void clearSelection() {
-    selectedSymptoms.clear();
   }
 
   void clearAll() {

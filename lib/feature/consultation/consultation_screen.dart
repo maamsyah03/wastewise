@@ -116,8 +116,7 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
                                     : const Color(0xFFD0D5DD),
                               ),
                             ),
-                            child: Text(
-                              symptom,
+                            child: Text(capitalize(symptom),
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: selected

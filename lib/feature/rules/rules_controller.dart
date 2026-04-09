@@ -4,7 +4,6 @@ class RulesController extends GetxController {
   final searchC = TextEditingController();
   final conditionC = TextEditingController();
   final resultC = TextEditingController();
-
   final formKey = GlobalKey<FormState>();
 
   final isLoading = false.obs;
@@ -13,64 +12,50 @@ class RulesController extends GetxController {
   final selectedStatus = 'Aktif'.obs;
 
   final int pageSize = 5;
-
   final items = <RuleItemModel>[].obs;
-
   final List<String> statusOptions = const ['Aktif', 'Nonaktif'];
+
+  final RuleService _ruleService = RuleService.instance;
+  final AuthService _authService = AuthService.instance;
 
   @override
   void onInit() {
     super.onInit();
-    _seedData();
     loadInitialData();
     searchC.addListener(_onSearchChanged);
   }
 
-  void _seedData() {
-    items.assignAll(const [
-      RuleItemModel(
-        id: 1,
-        condition: 'Basah AND Mudah membusuk',
-        result: 'Sampah Organik',
-        status: 'Aktif',
-      ),
-      RuleItemModel(
-        id: 2,
-        condition: 'Kering AND Plastik',
-        result: 'Sampah Anorganik',
-        status: 'Aktif',
-      ),
-      RuleItemModel(
-        id: 3,
-        condition: 'Beracun AND Bahan kimia',
-        result: 'Sampah B3',
-        status: 'Aktif',
-      ),
-      RuleItemModel(
-        id: 4,
-        condition: 'Kertas AND Kering',
-        result: 'Sampah Daur Ulang',
-        status: 'Aktif',
-      ),
-      RuleItemModel(
-        id: 5,
-        condition: 'Daun AND Basah',
-        result: 'Sampah Organik',
-        status: 'Aktif',
-      ),
-      RuleItemModel(
-        id: 6,
-        condition: 'Botol kaca AND Keras',
-        result: 'Sampah Anorganik',
-        status: 'Nonaktif',
-      ),
-    ]);
-  }
-
   Future<void> loadInitialData() async {
     isLoading.value = true;
-    await Future.delayed(const Duration(milliseconds: 700));
-    isLoading.value = false;
+
+    try {
+      final results = await _ruleService.getRules();
+
+      items.assignAll(
+        results.asMap().entries.map((entry) {
+          final index = entry.key;
+          final data = entry.value;
+          final docId = (data['docId'] ?? '').toString();
+
+          return RuleItemModel.fromFirestore(
+            docId: docId,
+            index: index,
+            data: data,
+          );
+        }).toList(),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[RULES][LOAD ERROR] $e');
+      debugPrint('[RULES][STACKTRACE] $stackTrace');
+
+      Get.snackbar(
+        'Gagal',
+        'Data rule gagal dimuat.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   void _onSearchChanged() {
@@ -269,28 +254,42 @@ class RulesController extends GetxController {
     final isValid = formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
+    final currentUser = _authService.currentUser;
+    if (currentUser == null) {
+      Get.snackbar(
+        'Gagal',
+        'User login tidak ditemukan.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
     isSubmitting.value = true;
 
     try {
-      await Future.delayed(const Duration(milliseconds: 400));
-
-      final nextId = items.isEmpty
-          ? 1
-          : items.map((e) => e.id).reduce((a, b) => a > b ? a : b) + 1;
-
-      items.add(
-        RuleItemModel(
-          id: nextId,
-          condition: conditionC.text.trim(),
-          result: resultC.text.trim(),
-          status: selectedStatus.value,
-        ),
+      await _ruleService.createRule(
+        condition: conditionC.text.trim(),
+        result: resultC.text.trim(),
+        status: selectedStatus.value,
+        createdBy: currentUser.uid,
       );
 
+      await loadInitialData();
+      clearForm();
       Get.back();
+
       Get.snackbar(
         'Berhasil',
         'Rule berhasil ditambahkan.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[RULES][ADD ERROR] $e');
+      debugPrint('[RULES][STACKTRACE] $stackTrace');
+
+      Get.snackbar(
+        'Gagal',
+        'Rule gagal ditambahkan.',
         snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
@@ -305,22 +304,28 @@ class RulesController extends GetxController {
     isSubmitting.value = true;
 
     try {
-      await Future.delayed(const Duration(milliseconds: 400));
-
-      final index = items.indexWhere((e) => e.id == item.id);
-      if (index == -1) return;
-
-      items[index] = item.copyWith(
+      await _ruleService.updateRule(
+        docId: item.docId,
         condition: conditionC.text.trim(),
         result: resultC.text.trim(),
         status: selectedStatus.value,
       );
-      items.refresh();
 
+      await loadInitialData();
       Get.back();
+
       Get.snackbar(
         'Berhasil',
         'Rule berhasil diperbarui.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[RULES][UPDATE ERROR] $e');
+      debugPrint('[RULES][STACKTRACE] $stackTrace');
+
+      Get.snackbar(
+        'Gagal',
+        'Rule gagal diperbarui.',
         snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
@@ -336,19 +341,32 @@ class RulesController extends GetxController {
         actions: [
           TextButton(onPressed: Get.back, child: const Text('Batal')),
           ElevatedButton(
-            onPressed: () {
-              items.removeWhere((e) => e.id == item.id);
+            onPressed: () async {
+              try {
+                await _ruleService.deleteRule(item.docId);
+                await loadInitialData();
 
-              if (currentPage.value > totalPages) {
-                currentPage.value = totalPages;
+                if (currentPage.value > totalPages) {
+                  currentPage.value = totalPages;
+                }
+
+                Get.back();
+                Get.snackbar(
+                  'Berhasil',
+                  'Rule berhasil dihapus.',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+              } catch (e, stackTrace) {
+                debugPrint('[RULES][DELETE ERROR] $e');
+                debugPrint('[RULES][STACKTRACE] $stackTrace');
+
+                Get.back();
+                Get.snackbar(
+                  'Gagal',
+                  'Rule gagal dihapus.',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
               }
-
-              Get.back();
-              Get.snackbar(
-                'Berhasil',
-                'Rule berhasil dihapus.',
-                snackPosition: SnackPosition.BOTTOM,
-              );
             },
             child: const Text('Hapus'),
           ),

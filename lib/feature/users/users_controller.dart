@@ -21,65 +21,50 @@ class UsersController extends GetxController {
   final List<String> roleOptions = const ['User', 'Pakar', 'Admin'];
   final List<String> statusOptions = const ['Aktif', 'Nonaktif'];
 
+  final AdminService _adminService = AdminService.instance;
+
   @override
   void onInit() {
     super.onInit();
-    _seedData();
     loadInitialData();
     searchC.addListener(_handleSearchChanged);
   }
 
-  void _seedData() {
-    users.assignAll(const [
-      UserManagementItem(
-        id: 1,
-        name: 'Raya',
-        username: 'raya01',
-        role: 'User',
-        status: 'Aktif',
-      ),
-      UserManagementItem(
-        id: 2,
-        name: 'Novi',
-        username: 'novi02',
-        role: 'Pakar',
-        status: 'Aktif',
-      ),
-      UserManagementItem(
-        id: 3,
-        name: 'Andre',
-        username: 'andre03',
-        role: 'Admin',
-        status: 'Aktif',
-      ),
-      UserManagementItem(
-        id: 4,
-        name: 'Dina',
-        username: 'dina04',
-        role: 'User',
-        status: 'Nonaktif',
-      ),
-      UserManagementItem(
-        id: 5,
-        name: 'Bimo',
-        username: 'bimo05',
-        role: 'User',
-        status: 'Aktif',
-      ),
-      UserManagementItem(
-        id: 6,
-        name: 'Raka',
-        username: 'raka06',
-        role: 'Pakar',
-        status: 'Aktif',
-      ),
-    ]);
-  }
-
   Future<void> loadInitialData() async {
-    isLoading.value = true;
-    await Future.delayed(const Duration(milliseconds: 700));
-    isLoading.value = false;
+    debugPrint('========== LOAD USERS START ==========');
+    try {
+      isLoading.value = true;
+
+      final results = await _adminService.getUsers();
+
+      users.assignAll(
+        results.asMap().entries.map((entry) {
+          final index = entry.key;
+          final data = entry.value;
+          final docId = (data['docId'] ?? '').toString();
+
+          return UserManagementItem.fromFirestore(
+            docId: docId,
+            index: index,
+            data: data,
+          );
+        }).toList(),
+      );
+
+      debugPrint('[USERS] total loaded = ${users.length}');
+    } catch (e, stackTrace) {
+      debugPrint('[USERS][ERROR] $e');
+      debugPrint('[USERS][STACKTRACE] $stackTrace');
+
+      Get.snackbar(
+        'Gagal',
+        'Data pengguna gagal dimuat.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoading.value = false;
+      debugPrint('========== LOAD USERS END ==========');
+    }
   }
 
   void _handleSearchChanged() {
@@ -93,7 +78,7 @@ class UsersController extends GetxController {
 
     return users.where((item) {
       return item.name.toLowerCase().contains(keyword) ||
-          item.username.toLowerCase().contains(keyword) ||
+          item.email.toLowerCase().contains(keyword) ||
           item.role.toLowerCase().contains(keyword) ||
           item.status.toLowerCase().contains(keyword);
     }).toList();
@@ -114,7 +99,6 @@ class UsersController extends GetxController {
     final end = (start + pageSize > data.length)
         ? data.length
         : start + pageSize;
-
     return data.sublist(start, end);
   }
 
@@ -146,16 +130,6 @@ class UsersController extends GetxController {
     }
     if (value.trim().length < 3) {
       return 'Nama minimal 3 karakter';
-    }
-    return null;
-  }
-
-  String? validateUsername(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Username wajib diisi';
-    }
-    if (value.trim().length < 3) {
-      return 'Username minimal 3 karakter';
     }
     return null;
   }
@@ -196,10 +170,10 @@ class UsersController extends GetxController {
           ),
           const SizedBox(height: 14),
           TextFieldCustom(
-            hintText: 'Masukkan username',
-            lebel: 'Username',
+            hintText: 'Email pengguna',
+            readOnly: true,
+            lebel: 'Email',
             controller: usernameC,
-            validator: validateUsername,
             cursorHeight: 20,
             cursorColor: Colors.black87,
             fillColor: const Color(0xFFF8FAFC),
@@ -279,27 +253,16 @@ class UsersController extends GetxController {
   }
 
   void openAddDialog() {
-    clearForm();
-
-    Get.dialog(
-      Obx(
-        () => FormDialog(
-          title: 'Tambah Pengguna',
-          subtitle: 'Lengkapi informasi pengguna di bawah ini.',
-          submitLabel: 'Simpan',
-          formKey: formKey,
-          isSubmitting: isSubmitting.value,
-          onSubmit: addUser,
-          child: _buildFormBody(),
-        ),
-      ),
-      barrierDismissible: false,
+    Get.snackbar(
+      'Info',
+      'Penambahan user baru sebaiknya lewat signup / create account admin.',
+      snackPosition: SnackPosition.BOTTOM,
     );
   }
 
   void openEditDialog(UserManagementItem item) {
     nameC.text = item.name;
-    usernameC.text = item.username;
+    usernameC.text = item.email;
     selectedRole.value = item.role;
     selectedStatus.value = item.status;
 
@@ -319,40 +282,6 @@ class UsersController extends GetxController {
     );
   }
 
-  Future<void> addUser() async {
-    final isValid = formKey.currentState?.validate() ?? false;
-    if (!isValid) return;
-
-    isSubmitting.value = true;
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 400));
-
-      final nextId = users.isEmpty
-          ? 1
-          : users.map((e) => e.id).reduce((a, b) => a > b ? a : b) + 1;
-
-      users.add(
-        UserManagementItem(
-          id: nextId,
-          name: nameC.text.trim(),
-          username: usernameC.text.trim(),
-          role: selectedRole.value,
-          status: selectedStatus.value,
-        ),
-      );
-
-      Get.back();
-      Get.snackbar(
-        'Berhasil',
-        'Pengguna berhasil ditambahkan.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    } finally {
-      isSubmitting.value = false;
-    }
-  }
-
   Future<void> updateUser(UserManagementItem item) async {
     final isValid = formKey.currentState?.validate() ?? false;
     if (!isValid) return;
@@ -360,23 +289,28 @@ class UsersController extends GetxController {
     isSubmitting.value = true;
 
     try {
-      await Future.delayed(const Duration(milliseconds: 400));
-
-      final index = users.indexWhere((e) => e.id == item.id);
-      if (index == -1) return;
-
-      users[index] = item.copyWith(
+      await _adminService.updateUser(
+        docId: item.docId,
         name: nameC.text.trim(),
-        username: usernameC.text.trim(),
         role: selectedRole.value,
         status: selectedStatus.value,
       );
-      users.refresh();
 
+      await loadInitialData();
       Get.back();
+
       Get.snackbar(
         'Berhasil',
         'Pengguna berhasil diperbarui.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[USERS][UPDATE ERROR] $e');
+      debugPrint('[USERS][STACKTRACE] $stackTrace');
+
+      Get.snackbar(
+        'Gagal',
+        'Pengguna gagal diperbarui.',
         snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
@@ -392,19 +326,32 @@ class UsersController extends GetxController {
         actions: [
           TextButton(onPressed: Get.back, child: const Text('Batal')),
           ElevatedButton(
-            onPressed: () {
-              users.removeWhere((e) => e.id == item.id);
+            onPressed: () async {
+              try {
+                await _adminService.deleteUser(item.docId);
+                await loadInitialData();
 
-              if (currentPage.value > totalPages) {
-                currentPage.value = totalPages;
+                if (currentPage.value > totalPages) {
+                  currentPage.value = totalPages;
+                }
+
+                Get.back();
+                Get.snackbar(
+                  'Berhasil',
+                  'Pengguna ${item.name} dihapus.',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+              } catch (e, stackTrace) {
+                debugPrint('[USERS][DELETE ERROR] $e');
+                debugPrint('[USERS][STACKTRACE] $stackTrace');
+
+                Get.back();
+                Get.snackbar(
+                  'Gagal',
+                  'Pengguna gagal dihapus.',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
               }
-
-              Get.back();
-              Get.snackbar(
-                'Berhasil',
-                'Pengguna ${item.name} dihapus.',
-                snackPosition: SnackPosition.BOTTOM,
-              );
             },
             child: const Text('Hapus'),
           ),

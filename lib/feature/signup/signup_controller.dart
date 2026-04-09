@@ -10,6 +10,14 @@ class SignupController extends GetxController {
   final isLoading = false.obs;
 
   final AuthService _authService = AuthService.instance;
+  final selectedRole = 'user'.obs;
+  final allowedSignupRoles = const ['user', 'admin'];
+
+  void setRole(String? value) {
+    if (value != null && allowedSignupRoles.contains(value)) {
+      selectedRole.value = value;
+    }
+  }
 
   @override
   void onInit() {
@@ -90,7 +98,7 @@ class SignupController extends GetxController {
         email: email,
         password: password,
         username: email.split('@').first,
-        role: 'user',
+        role: selectedRole.value,
       );
 
       Get.snackbar(
@@ -103,6 +111,7 @@ class SignupController extends GetxController {
       usernameC.clear();
       passwordC.clear();
       confirmPasswordC.clear();
+      selectedRole.value = 'user';
 
       Get.off(() => const Login());
     } on FirebaseAuthException catch (e) {

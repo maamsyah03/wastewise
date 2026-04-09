@@ -3,7 +3,6 @@ part of '../../pages.dart';
 class SymptomsController extends GetxController {
   final searchC = TextEditingController();
   final symptomC = TextEditingController();
-
   final formKey = GlobalKey<FormState>();
 
   final isLoading = false.obs;
@@ -12,34 +11,50 @@ class SymptomsController extends GetxController {
   final selectedStatus = 'Aktif'.obs;
 
   final int pageSize = 5;
-
   final items = <SymptomItem>[].obs;
-
   final List<String> statusOptions = const ['Aktif', 'Nonaktif'];
+
+  final SymptomService _symptomService = SymptomService.instance;
+  final AuthService _authService = AuthService.instance;
 
   @override
   void onInit() {
     super.onInit();
-    _seedData();
     loadInitialData();
     searchC.addListener(_onSearchChanged);
   }
 
-  void _seedData() {
-    items.assignAll(const [
-      SymptomItem(id: 1, name: 'Basah', status: 'Aktif'),
-      SymptomItem(id: 2, name: 'Berbau', status: 'Aktif'),
-      SymptomItem(id: 3, name: 'Mudah membusuk', status: 'Aktif'),
-      SymptomItem(id: 4, name: 'Kering', status: 'Aktif'),
-      SymptomItem(id: 5, name: 'Keras', status: 'Aktif'),
-      SymptomItem(id: 6, name: 'Plastik', status: 'Aktif'),
-    ]);
-  }
-
   Future<void> loadInitialData() async {
     isLoading.value = true;
-    await Future.delayed(const Duration(milliseconds: 700));
-    isLoading.value = false;
+
+    try {
+      final results = await _symptomService.getSymptoms();
+
+      items.assignAll(
+        results.asMap().entries.map((entry) {
+          final index = entry.key;
+          final data = entry.value;
+          final docId = (data['docId'] ?? '').toString();
+
+          return SymptomItem.fromFirestore(
+            docId: docId,
+            index: index,
+            data: data,
+          );
+        }).toList(),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[SYMPTOMS][LOAD ERROR] $e');
+      debugPrint('[SYMPTOMS][STACKTRACE] $stackTrace');
+
+      Get.snackbar(
+        'Gagal',
+        'Data gejala gagal dimuat.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   void _onSearchChanged() {
@@ -202,27 +217,41 @@ class SymptomsController extends GetxController {
     final isValid = formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
+    final currentUser = _authService.currentUser;
+    if (currentUser == null) {
+      Get.snackbar(
+        'Gagal',
+        'User login tidak ditemukan.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
     isSubmitting.value = true;
 
     try {
-      await Future.delayed(const Duration(milliseconds: 400));
-
-      final nextId = items.isEmpty
-          ? 1
-          : items.map((e) => e.id).reduce((a, b) => a > b ? a : b) + 1;
-
-      items.add(
-        SymptomItem(
-          id: nextId,
-          name: symptomC.text.trim(),
-          status: selectedStatus.value,
-        ),
+      await _symptomService.createSymptom(
+        name: symptomC.text.trim(),
+        status: selectedStatus.value,
+        createdBy: currentUser.uid,
       );
 
+      await loadInitialData();
+      clearForm();
       Get.back();
+
       Get.snackbar(
         'Berhasil',
         'Gejala berhasil ditambahkan.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[SYMPTOMS][ADD ERROR] $e');
+      debugPrint('[SYMPTOMS][STACKTRACE] $stackTrace');
+
+      Get.snackbar(
+        'Gagal',
+        'Gejala gagal ditambahkan.',
         snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
@@ -237,21 +266,27 @@ class SymptomsController extends GetxController {
     isSubmitting.value = true;
 
     try {
-      await Future.delayed(const Duration(milliseconds: 400));
-
-      final index = items.indexWhere((e) => e.id == item.id);
-      if (index == -1) return;
-
-      items[index] = item.copyWith(
+      await _symptomService.updateSymptom(
+        docId: item.docId,
         name: symptomC.text.trim(),
         status: selectedStatus.value,
       );
-      items.refresh();
 
+      await loadInitialData();
       Get.back();
+
       Get.snackbar(
         'Berhasil',
         'Gejala berhasil diperbarui.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[SYMPTOMS][UPDATE ERROR] $e');
+      debugPrint('[SYMPTOMS][STACKTRACE] $stackTrace');
+
+      Get.snackbar(
+        'Gagal',
+        'Gejala gagal diperbarui.',
         snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
@@ -267,19 +302,32 @@ class SymptomsController extends GetxController {
         actions: [
           TextButton(onPressed: Get.back, child: const Text('Batal')),
           ElevatedButton(
-            onPressed: () {
-              items.removeWhere((e) => e.id == item.id);
+            onPressed: () async {
+              try {
+                await _symptomService.deleteSymptom(item.docId);
+                await loadInitialData();
 
-              if (currentPage.value > totalPages) {
-                currentPage.value = totalPages;
+                if (currentPage.value > totalPages) {
+                  currentPage.value = totalPages;
+                }
+
+                Get.back();
+                Get.snackbar(
+                  'Berhasil',
+                  'Gejala ${item.name} dihapus.',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+              } catch (e, stackTrace) {
+                debugPrint('[SYMPTOMS][DELETE ERROR] $e');
+                debugPrint('[SYMPTOMS][STACKTRACE] $stackTrace');
+
+                Get.back();
+                Get.snackbar(
+                  'Gagal',
+                  'Gejala gagal dihapus.',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
               }
-
-              Get.back();
-              Get.snackbar(
-                'Berhasil',
-                'Gejala ${item.name} dihapus.',
-                snackPosition: SnackPosition.BOTTOM,
-              );
             },
             child: const Text('Hapus'),
           ),

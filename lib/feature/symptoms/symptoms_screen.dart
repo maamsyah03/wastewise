@@ -75,6 +75,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                 )
               else ...[
                   TableData<SymptomItem>(
+                    columnSpacing: 150,
                     items: controller.paginatedItems,
                     columns: [
                       AppTableColumn<SymptomItem>(
@@ -85,8 +86,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                       AppTableColumn<SymptomItem>(
                         title: 'Nama Gejala',
                         width: 260,
-                        cellBuilder: (item) => Text(
-                          item.name,
+                        cellBuilder: (item) => Text(capitalize(item.name),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),

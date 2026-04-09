@@ -1,23 +1,353 @@
 part of '../../pages.dart';
 
 class DashboardController extends GetxController {
-  final Role role;
-
-  DashboardController({required this.role});
-
   late final PageController pageController;
+
+  final pakarEmailC = TextEditingController();
+  final pakarPasswordC = TextEditingController();
+  final pakarConfirmPasswordC = TextEditingController();
+  final pakarUsernameC = TextEditingController();
+  final pakarFormKey = GlobalKey<FormState>();
+
+  final isCreatingPakar = false.obs;
+  final isPakarPasswordHidden = true.obs;
+  final isPakarConfirmPasswordHidden = true.obs;
+
   final selectedIndex = 0.obs;
+  final isLoadingProfile = true.obs;
+
+  final currentRole = Rxn<Role>();
+  final username = ''.obs;
+  final email = ''.obs;
+
+  final AuthService _authService = AuthService.instance;
+
+  Role get role => currentRole.value ?? Role.user;
+
+  /// admin dashboard
+  final isLoadingAdminDashboard = false.obs;
+  final AdminService _adminService = AdminService.instance;
+
+  final adminTotalUsers = 0.obs;
+  final adminTotalConsultations = 0.obs;
+  final adminTotalSymptoms = 0.obs;
+  final adminTotalRules = 0.obs;
+
+  final adminMonitoringItems = <DashboardActivityItem>[].obs;
+  final adminConsultationSpots = <FlSpot>[].obs;
+  final adminDistributionItems = <DashboardPieItem>[].obs;
+
+  Future<void> loadAdminDashboard() async {
+    if (role != Role.admin) return;
+
+    debugPrint('========== LOAD ADMIN DASHBOARD START ==========');
+
+    try {
+      isLoadingAdminDashboard.value = true;
+
+      final summary = await _adminService.getAdminDashboardSummary();
+
+      adminTotalUsers.value = summary['totalUsers'] ?? 0;
+      adminTotalConsultations.value = summary['totalConsultations'] ?? 0;
+      adminTotalSymptoms.value = summary['totalSymptoms'] ?? 0;
+      adminTotalRules.value = summary['totalRules'] ?? 0;
+
+      final resultCounter =
+          (summary['resultCounter'] as List<MapEntry<String, int>>?) ?? [];
+
+      adminDistributionItems.assignAll(
+        resultCounter.take(4).map((e) {
+          return DashboardPieItem(
+            title: e.key,
+            value: e.value.toDouble(),
+            color: const Color(0xFF3B82F6),
+          );
+        }).toList(),
+      );
+
+      adminConsultationSpots.assignAll(
+        resultCounter.asMap().entries.map((entry) {
+          return FlSpot(
+            entry.key.toDouble(),
+            entry.value.value.toDouble(),
+          );
+        }).toList(),
+      );
+
+      adminMonitoringItems.assignAll([
+        DashboardActivityItem(
+          title: 'Monitoring Pengguna',
+          subtitle: 'Total pengguna terdaftar: ${adminTotalUsers.value}',
+          trailing: 'Users',
+        ),
+        DashboardActivityItem(
+          title: 'Monitoring Konsultasi',
+          subtitle: 'Total konsultasi masuk: ${adminTotalConsultations.value}',
+          trailing: 'Data',
+        ),
+        DashboardActivityItem(
+          title: 'Knowledge Base',
+          subtitle:
+              'Gejala: ${adminTotalSymptoms.value}, Rule: ${adminTotalRules.value}',
+          trailing: 'KB',
+        ),
+      ]);
+
+      debugPrint('[ADMIN DASHBOARD] Loaded successfully');
+    } catch (e, stackTrace) {
+      debugPrint('[ADMIN DASHBOARD][ERROR] $e');
+      debugPrint('[ADMIN DASHBOARD][STACKTRACE] $stackTrace');
+    } finally {
+      isLoadingAdminDashboard.value = false;
+      debugPrint('========== LOAD ADMIN DASHBOARD END ==========');
+    }
+  }
+
+  /// user dashboard
+  final isLoadingUserDashboard = false.obs;
+  final UserDashboardService _userDashboardService =
+      UserDashboardService.instance;
+
+  final userTotalConsultations = 0.obs;
+  final userMostFrequentResult = '-'.obs;
+  final userRecentActivities = <DashboardActivityItem>[].obs;
+
+  Future<void> loadUserDashboard() async {
+    if (role != Role.user) return;
+
+    debugPrint('========== LOAD USER DASHBOARD START ==========');
+
+    try {
+      isLoadingUserDashboard.value = true;
+
+      final user = _authService.currentUser;
+      if (user == null) {
+        debugPrint('[USER DASHBOARD][ERROR] currentUser NULL');
+        return;
+      }
+
+      final summary = await _userDashboardService.getUserDashboardSummary(
+        user.uid,
+      );
+
+      userTotalConsultations.value = summary['totalConsultations'] ?? 0;
+      userMostFrequentResult.value = (summary['mostFrequentResult'] ?? '-')
+          .toString();
+
+      final recentActivities =
+          (summary['recentActivities'] as List<dynamic>? ?? [])
+              .cast<Map<String, dynamic>>();
+
+      userRecentActivities.assignAll(
+        recentActivities.map((item) {
+          return DashboardActivityItem(
+            title: item['title']?.toString() ?? '-',
+            subtitle: item['subtitle']?.toString() ?? '-',
+            trailing: item['date']?.toString() ?? '-',
+          );
+        }).toList(),
+      );
+
+      debugPrint('[USER DASHBOARD] Loaded successfully');
+    } catch (e, stackTrace) {
+      debugPrint('[USER DASHBOARD][ERROR] $e');
+      debugPrint('[USER DASHBOARD][STACKTRACE] $stackTrace');
+    } finally {
+      isLoadingUserDashboard.value = false;
+      debugPrint('========== LOAD USER DASHBOARD END ==========');
+    }
+  }
+
+  /// pakar dashboard
+  final isLoadingPakarDashboard = false.obs;
+  final PakarDashboardService _dashboardService =
+      PakarDashboardService.instance;
+  final pakarTotalSymptoms = 0.obs;
+  final pakarTotalRules = 0.obs;
+  final pakarActiveSymptoms = 0.obs;
+  final pakarInactiveSymptoms = 0.obs;
+  final pakarActiveRules = 0.obs;
+  final pakarInactiveRules = 0.obs;
+
+  final pakarKnowledgeItems = <DashboardActivityItem>[].obs;
+  final pakarBarChartItems = <Map<String, dynamic>>[].obs;
+  final pakarPieChartItems = <DashboardPieItem>[].obs;
+
+  Future<void> loadPakarDashboard() async {
+    if (role != Role.pakar) return;
+
+    debugPrint('========== LOAD PAKAR DASHBOARD START ==========');
+
+    try {
+      isLoadingPakarDashboard.value = true;
+
+      final summary = await _dashboardService.getPakarDashboardSummary();
+
+      pakarTotalSymptoms.value = summary['totalSymptoms'] ?? 0;
+      pakarTotalRules.value = summary['totalRules'] ?? 0;
+      pakarActiveSymptoms.value = summary['activeSymptoms'] ?? 0;
+      pakarInactiveSymptoms.value = summary['inactiveSymptoms'] ?? 0;
+      pakarActiveRules.value = summary['activeRules'] ?? 0;
+      pakarInactiveRules.value = summary['inactiveRules'] ?? 0;
+
+      final resultCounter = (summary['resultCounter'] as List<dynamic>? ?? [])
+          .cast<MapEntry<String, int>>();
+
+      pakarBarChartItems.assignAll(
+        resultCounter.take(5).map((e) {
+          return {
+            'label': e.key.length > 12 ? '${e.key.substring(0, 12)}...' : e.key,
+            'value': e.value.toDouble(),
+          };
+        }).toList(),
+      );
+
+      pakarPieChartItems.assignAll([
+        DashboardPieItem(
+          title: 'Gejala Aktif',
+          value: pakarActiveSymptoms.value.toDouble(),
+          color: const Color(0xFF22C55E),
+        ),
+        DashboardPieItem(
+          title: 'Gejala Nonaktif',
+          value: pakarInactiveSymptoms.value.toDouble(),
+          color: const Color(0xFFF59E0B),
+        ),
+        DashboardPieItem(
+          title: 'Rule Aktif',
+          value: pakarActiveRules.value.toDouble(),
+          color: const Color(0xFF3B82F6),
+        ),
+        DashboardPieItem(
+          title: 'Rule Nonaktif',
+          value: pakarInactiveRules.value.toDouble(),
+          color: const Color(0xFFEF4444),
+        ),
+      ]);
+
+      final recentActivities =
+          (summary['recentActivities'] as List<dynamic>? ?? [])
+              .cast<Map<String, dynamic>>();
+
+      pakarKnowledgeItems.assignAll(
+        recentActivities.map((item) {
+          final type = (item['type'] ?? '').toString();
+          return DashboardActivityItem(
+            title: item['title']?.toString() ?? '-',
+            subtitle: item['subtitle']?.toString() ?? '-',
+            trailing: type == 'rule' ? 'Rule' : 'Gejala',
+          );
+        }).toList(),
+      );
+
+      debugPrint('[PAKAR DASHBOARD] Loaded successfully');
+    } catch (e, stackTrace) {
+      debugPrint('[PAKAR DASHBOARD][ERROR] $e');
+      debugPrint('[PAKAR DASHBOARD][STACKTRACE] $stackTrace');
+    } finally {
+      isLoadingPakarDashboard.value = false;
+      debugPrint('========== LOAD PAKAR DASHBOARD END ==========');
+    }
+  }
 
   @override
   void onInit() {
     super.onInit();
     pageController = PageController(initialPage: 0);
+    loadCurrentUserProfile();
   }
 
   @override
   void onClose() {
+    pakarEmailC.dispose();
+    pakarUsernameC.dispose();
+    pakarPasswordC.dispose();
+    pakarConfirmPasswordC.dispose();
     pageController.dispose();
     super.onClose();
+  }
+
+  Future<void> loadCurrentUserProfile() async {
+    debugPrint('========== DASHBOARD PAKAR PROFILE LOAD START ==========');
+
+    try {
+      isLoadingProfile.value = true;
+
+      final user = _authService.currentUser;
+      if (user == null) {
+        debugPrint('[DASHBOARDPAKAR ][ERROR] currentUser NULL');
+        currentRole.value = null;
+        return;
+      }
+
+      debugPrint('[DASHBOARD PAKAR] UID: ${user.uid}');
+      debugPrint('[DASHBOARD PAKAR] EMAIL AUTH: ${user.email}');
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      debugPrint('[DASHBOARD PAKAR] DOC EXISTS: ${doc.exists}');
+      debugPrint('[DASHBOARD PAKAR] DOC DATA: ${doc.data()}');
+
+      if (!doc.exists) {
+        debugPrint(
+          '[DASHBOARD PAKAR][ERROR] users/${user.uid} tidak ditemukan',
+        );
+        currentRole.value = null;
+        return;
+      }
+
+      final data = doc.data() ?? {};
+
+      final roleString = (data['role'] ?? '').toString().trim().toLowerCase();
+      final usernameValue = (data['username'] ?? '').toString().trim();
+      final emailValue = (data['email'] ?? user.email ?? '').toString().trim();
+
+      debugPrint('[DASHBOARD PAKAR] ROLE STRING: $roleString');
+      debugPrint('[DASHBOARD PAKAR] USERNAME: $usernameValue');
+      debugPrint('[DASHBOARD PAKAR] EMAIL: $emailValue');
+
+      currentRole.value = _mapRoleStrict(roleString);
+      username.value = usernameValue;
+      email.value = emailValue;
+      selectedIndex.value = 0;
+      if (currentRole.value == Role.pakar) {
+        await loadPakarDashboard();
+      }
+
+      if (currentRole.value == Role.user) {
+        await loadUserDashboard();
+      }
+
+      if (currentRole.value == Role.admin) {
+        await loadAdminDashboard();
+      }
+
+      debugPrint('[DASHBOARD PAKAR] ROLE MAPPED: ${currentRole.value}');
+      debugPrint('========== DASHBOARD PROFILE LOAD SUCCESS ==========');
+    } catch (e, stackTrace) {
+      debugPrint('[DASHBOARD PAKAR][ERROR] $e');
+      debugPrint('[DASHBOARD PAKAR][STACKTRACE] $stackTrace');
+      currentRole.value = null;
+    } finally {
+      isLoadingProfile.value = false;
+      debugPrint('========== DASHBOARD PAKAR PROFILE LOAD END ==========');
+    }
+  }
+
+  Role _mapRoleStrict(String role) {
+    switch (role.trim().toLowerCase()) {
+      case 'admin':
+        return Role.admin;
+      case 'pakar':
+        return Role.pakar;
+      case 'user':
+        return Role.user;
+      default:
+        throw Exception('Role "$role" tidak valid di Firestore');
+    }
   }
 
   List<DashboardMenuItem> get menuItems {
@@ -88,11 +418,21 @@ class DashboardController extends GetxController {
     }
   }
 
-  String get currentMenuTitle => menuItems[selectedIndex.value].title;
+  String get currentMenuTitle {
+    final items = menuItems;
+    if (selectedIndex.value >= items.length) return items.first.title;
+    return items[selectedIndex.value].title;
+  }
 
-  String get currentMenuSubtitle => menuItems[selectedIndex.value].subtitle;
+  String get currentMenuSubtitle {
+    final items = menuItems;
+    if (selectedIndex.value >= items.length) return items.first.subtitle;
+    return items[selectedIndex.value].subtitle;
+  }
 
   String get profileName {
+    if (username.value.isNotEmpty) return username.value;
+
     switch (role) {
       case Role.user:
         return 'User';
@@ -104,6 +444,10 @@ class DashboardController extends GetxController {
   }
 
   String get initialName {
+    if (username.value.isNotEmpty) {
+      return username.value.characters.first.toUpperCase();
+    }
+
     switch (role) {
       case Role.user:
         return 'U';
@@ -117,141 +461,229 @@ class DashboardController extends GetxController {
   List<DashboardStatItem> get stats {
     switch (role) {
       case Role.user:
-        return const [
+        return [
           DashboardStatItem(
             title: 'Total Konsultasi',
-            value: '18',
+            value: '${userTotalConsultations.value}',
             icon: Icons.assignment_outlined,
-            footer: 'Riwayat identifikasi pengguna',
+            footer: 'Jumlah konsultasi yang pernah dilakukan',
           ),
           DashboardStatItem(
-            title: 'Hasil Organik',
-            value: '10',
+            title: 'Hasil Terbanyak',
+            value: userMostFrequentResult.value,
             icon: Icons.eco_outlined,
-            footer: 'Jenis sampah paling sering muncul',
+            footer: 'Kategori hasil yang paling sering muncul',
           ),
           DashboardStatItem(
-            title: 'Rekomendasi Tersimpan',
-            value: '7',
-            icon: Icons.bookmark_border_rounded,
-            footer: 'Panduan yang pernah disimpan',
+            title: 'Aktivitas Tersimpan',
+            value: '${userRecentActivities.length}',
+            icon: Icons.history_rounded,
+            footer: 'Riwayat terbaru pada dashboard',
           ),
         ];
       case Role.pakar:
-        return const [
+        return [
           DashboardStatItem(
             title: 'Total Gejala',
-            value: '24',
+            value: '${pakarTotalSymptoms.value}',
             icon: Icons.list_alt_outlined,
             footer: 'Data ciri sampah terdaftar',
           ),
           DashboardStatItem(
             title: 'Total Rule',
-            value: '16',
+            value: '${pakarTotalRules.value}',
             icon: Icons.rule_folder_outlined,
             footer: 'Aturan forward chaining aktif',
           ),
           DashboardStatItem(
-            title: 'Jenis Sampah',
-            value: '8',
-            icon: Icons.recycling_outlined,
-            footer: 'Kategori sampah dalam knowledge base',
+            title: 'Rule Aktif',
+            value: '${pakarActiveRules.value}',
+            icon: Icons.check_circle_outline,
+            footer: 'Jumlah rule berstatus aktif',
           ),
         ];
       case Role.admin:
-        return const [
+        return [
           DashboardStatItem(
             title: 'Total Pengguna',
-            value: '128',
+            value: '${adminTotalUsers.value}',
             icon: Icons.group_outlined,
             footer: 'Pengguna terdaftar dalam sistem',
           ),
           DashboardStatItem(
             title: 'Total Konsultasi',
-            value: '356',
+            value: '${adminTotalConsultations.value}',
             icon: Icons.assignment_outlined,
             footer: 'Aktivitas identifikasi keseluruhan',
           ),
           DashboardStatItem(
-            title: 'Sistem Aktif',
-            value: '99%',
-            icon: Icons.monitor_heart_outlined,
-            footer: 'Status operasional aplikasi',
+            title: 'Knowledge Base',
+            value: '${adminTotalRules.value}',
+            icon: Icons.rule_folder_outlined,
+            footer: 'Total rule dalam sistem',
           ),
         ];
     }
   }
 
-  List<DashboardActivityItem> get expertKnowledge => const [
-    DashboardActivityItem(
-      title: 'Gejala Baru Ditambahkan',
-      subtitle: 'Data gejala “mudah terurai” masuk ke knowledge base',
-      trailing: 'Baru',
-    ),
-    DashboardActivityItem(
-      title: 'Rule Diperbarui',
-      subtitle: 'Aturan inferensi untuk sampah anorganik telah disesuaikan',
-      trailing: '2 update',
-    ),
-    DashboardActivityItem(
-      title: 'Validasi Jenis Sampah',
-      subtitle: 'Pakar sedang meninjau konsistensi kategori dan rekomendasi',
-      trailing: 'Review',
-    ),
-  ];
+  List<DashboardActivityItem> get expertKnowledge => pakarKnowledgeItems;
 
-  List<DashboardActivityItem> get adminMonitoring => const [
-    DashboardActivityItem(
-      title: 'Aktivitas Pengguna',
-      subtitle: 'Sebagian besar aktivitas berasal dari menu konsultasi',
-      trailing: 'Normal',
-    ),
-    DashboardActivityItem(
-      title: 'Laporan Sistem',
-      subtitle:
-          'Tidak ada gangguan besar pada modul dashboard dan identifikasi',
-      trailing: 'Stabil',
-    ),
-    DashboardActivityItem(
-      title: 'Data Konsultasi',
-      subtitle: 'Jumlah konsultasi meningkat dibanding periode sebelumnya',
-      trailing: '+12%',
-    ),
-  ];
+  List<DashboardActivityItem> get adminMonitoring => adminMonitoringItems;
 
-  List<FlSpot> get adminConsultationTrend => const [
-    FlSpot(0, 12),
-    FlSpot(1, 18),
-    FlSpot(2, 15),
-    FlSpot(3, 21),
-    FlSpot(4, 24),
-    FlSpot(5, 19),
-    FlSpot(6, 27),
-  ];
+  List<FlSpot> get adminConsultationTrend => adminConsultationSpots;
 
-  List<DashboardPieItem> get adminPieSections => const [
-    DashboardPieItem(title: 'Organik', value: 40, color: Color(0xFF22C55E)),
-    DashboardPieItem(title: 'Anorganik', value: 35, color: Color(0xFF3B82F6)),
-    DashboardPieItem(title: 'B3', value: 15, color: Color(0xFFF59E0B)),
-    DashboardPieItem(title: 'Lainnya', value: 10, color: Color(0xFFEF4444)),
-  ];
+  List<DashboardPieItem> get adminPieSections => adminDistributionItems;
 
-  List<Map<String, dynamic>> get expertBarData => const [
-    {'label': 'Rule 1', 'value': 12.0},
-    {'label': 'Rule 2', 'value': 18.0},
-    {'label': 'Rule 3', 'value': 9.0},
-    {'label': 'Rule 4', 'value': 15.0},
-    {'label': 'Rule 5', 'value': 11.0},
-  ];
+  List<Map<String, dynamic>> get expertBarData => pakarBarChartItems;
 
-  List<DashboardPieItem> get expertPieSections => const [
-    DashboardPieItem(title: 'Organik', value: 45, color: Color(0xFF22C55E)),
-    DashboardPieItem(title: 'Anorganik', value: 30, color: Color(0xFF3B82F6)),
-    DashboardPieItem(title: 'B3', value: 25, color: Color(0xFFF59E0B)),
-  ];
+  List<DashboardPieItem> get expertPieSections => pakarPieChartItems;
+
+  void showCreatePakarDialog() {
+    clearCreatePakarForm();
+    Get.dialog(
+      DashboardCreatePakarDialog(controller: this),
+      barrierDismissible: false,
+    );
+  }
+
+  Future<void> createPakarAccount() async {
+    final isValid = pakarFormKey.currentState?.validate() ?? false;
+    if (!isValid) return;
+
+    isCreatingPakar.value = true;
+
+    try {
+      final pakarUsername = pakarUsernameC.text.trim();
+      final pakarEmail = pakarEmailC.text.trim();
+      final pakarPassword = pakarPasswordC.text.trim();
+
+      debugPrint('========== CREATE PAKAR START ==========');
+      debugPrint('[PAKAR] username: $pakarUsername');
+      debugPrint('[PAKAR] email: $pakarEmail');
+
+      await _authService.createPakarByAdmin(
+        username: pakarUsername,
+        email: pakarEmail,
+        password: pakarPassword,
+      );
+
+      debugPrint('[PAKAR] SUCCESS create pakar account');
+      debugPrint('========== CREATE PAKAR END ==========');
+
+      Get.back();
+
+      Get.snackbar(
+        'Berhasil',
+        'Akun pakar berhasil dibuat',
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+    } on FirebaseAuthException catch (e) {
+      debugPrint('[PAKAR][FIREBASE ERROR] ${e.code}');
+      debugPrint('[PAKAR][MESSAGE] ${e.message}');
+
+      String message = 'Gagal membuat akun pakar';
+
+      switch (e.code) {
+        case 'email-already-in-use':
+          message = 'Email sudah terdaftar';
+          break;
+        case 'invalid-email':
+          message = 'Format email tidak valid';
+          break;
+        case 'weak-password':
+          message = 'Password terlalu lemah';
+          break;
+      }
+
+      Get.snackbar(
+        'Gagal',
+        message,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[PAKAR][ERROR] $e');
+      debugPrint('[PAKAR][STACKTRACE] $stackTrace');
+
+      Get.snackbar(
+        'Gagal',
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+    } finally {
+      isCreatingPakar.value = false;
+    }
+  }
+
+  String? validatePakarUsername(String? value) {
+    final input = value?.trim() ?? '';
+
+    if (input.isEmpty) {
+      return 'Username wajib diisi';
+    }
+    if (input.length < 3) {
+      return 'Username minimal 3 karakter';
+    }
+    if (input.contains(' ')) {
+      return 'Username tidak boleh mengandung spasi';
+    }
+    return null;
+  }
+
+  String? validatePakarEmail(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Email wajib diisi';
+    }
+    if (!GetUtils.isEmail(value.trim())) {
+      return 'Format email tidak valid';
+    }
+    return null;
+  }
+
+  String? validatePakarPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Password wajib diisi';
+    }
+    if (value.length < 6) {
+      return 'Password minimal 6 karakter';
+    }
+    return null;
+  }
+
+  String? validatePakarConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Konfirmasi password wajib diisi';
+    }
+    if (value != pakarPasswordC.text) {
+      return 'Konfirmasi password tidak sama';
+    }
+    return null;
+  }
+
+  void clearCreatePakarForm() {
+    pakarEmailC.clear();
+    pakarUsernameC.clear();
+    pakarPasswordC.clear();
+    pakarConfirmPasswordC.clear();
+    isPakarPasswordHidden.value = true;
+    isPakarConfirmPasswordHidden.value = true;
+    pakarFormKey.currentState?.reset();
+  }
+
+  void togglePakarPasswordVisibility() {
+    isPakarPasswordHidden.value = !isPakarPasswordHidden.value;
+  }
+
+  void togglePakarConfirmPasswordVisibility() {
+    isPakarConfirmPasswordHidden.value = !isPakarConfirmPasswordHidden.value;
+  }
 
   void changePage(int index) {
+    if (index < 0 || index >= menuItems.length) return;
     if (selectedIndex.value == index) return;
+
     selectedIndex.value = index;
     pageController.animateToPage(
       index,
@@ -261,20 +693,26 @@ class DashboardController extends GetxController {
   }
 
   void goToConsultation() {
-    if (role != Role.user) return;
-    changePage(1);
+    if (role == Role.user && menuItems.length > 1) {
+      changePage(1);
+    }
   }
 
   void goToHistory() {
-    if (role != Role.user) return;
-    changePage(2);
+    if (role == Role.user && menuItems.length > 2) {
+      changePage(2);
+    }
   }
 
   void onPageChanged(int index) {
-    selectedIndex.value = index;
+    if (index >= 0 && index < menuItems.length) {
+      selectedIndex.value = index;
+    }
   }
 
   void logout() {
-    Get.offAll(() => const Login());
+    _authService.signOut().whenComplete(() {
+      Get.offAll(() => const Login());
+    });
   }
 }

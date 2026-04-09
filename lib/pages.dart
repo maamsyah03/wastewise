@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'core/helper/helper.dart';
 import 'core/helper/role/role.dart';
 import 'feature/consultation/consultation_model.dart';
 import 'feature/history/history_model.dart';
@@ -11,8 +15,15 @@ import 'feature/reports/reports_model.dart';
 import 'feature/rules/rules_model.dart';
 import 'feature/symptoms/symptoms_model.dart';
 import 'feature/users/users_model.dart';
+import 'firebase_options.dart';
 
 part 'core/services/auth_service.dart';
+part 'core/services/symptom_service.dart';
+part 'core/services/rule_service.dart';
+part 'core/services/pakar_dashboard_service.dart';
+part 'core/services/consultation_service.dart';
+part 'core/services/user_dashboard_service.dart';
+part 'core/services/admin_service.dart';
 
 part 'feature/login/login_controller.dart';
 
@@ -67,6 +78,10 @@ part 'feature/dashboard/widgets/admin_pie_chart.dart';
 part 'feature/dashboard/widgets/expert_bar_chart.dart';
 
 part 'feature/dashboard/widgets/expert_pie_chart.dart';
+
+part 'feature/dashboard/widgets/dashboard_create_pakar_dialog.dart';
+
+part 'feature/dashboard/widgets/dashboard_create_pakar_shortcut.dart';
 
 part 'feature/dashboard/models/dashboard_menu_item.dart';
 

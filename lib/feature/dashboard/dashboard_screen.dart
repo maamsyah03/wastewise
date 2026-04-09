@@ -1,9 +1,7 @@
 part of '../../pages.dart';
 
 class Dashboard extends StatefulWidget {
-  final Role role;
-
-  const Dashboard({super.key, this.role = Role.user});
+  const Dashboard({super.key});
 
   @override
   State<Dashboard> createState() => _DashboardState();
@@ -11,24 +9,20 @@ class Dashboard extends StatefulWidget {
 
 class _DashboardState extends State<Dashboard> {
   late final DashboardController controller;
-  late final String tag;
 
   @override
   void initState() {
     super.initState();
-    tag = 'dashboard_${widget.role.name}';
 
-    if (!Get.isRegistered<DashboardController>(tag: tag)) {
-      Get.put(DashboardController(role: widget.role), tag: tag);
-    }
-
-    controller = Get.find<DashboardController>(tag: tag);
+    controller = Get.isRegistered<DashboardController>()
+        ? Get.find<DashboardController>()
+        : Get.put(DashboardController());
   }
 
   @override
   void dispose() {
-    if (Get.isRegistered<DashboardController>(tag: tag)) {
-      Get.delete<DashboardController>(tag: tag);
+    if (Get.isRegistered<DashboardController>()) {
+      Get.delete<DashboardController>();
     }
     super.dispose();
   }
@@ -51,35 +45,78 @@ class _DashboardState extends State<Dashboard> {
   Widget build(BuildContext context) {
     final isMobile = _isMobile(context);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
-      appBar: isMobile
-          ? AppBar(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              elevation: 0,
-              title: Obx(
-                () => Text(
+    return Obx(() {
+      if (controller.isLoadingProfile.value) {
+        return const Scaffold(
+          backgroundColor: Color(0xFFF6F8FC),
+          body: Center(child: CircularProgressIndicator()),
+        );
+      }
+
+      if (controller.currentRole.value == null) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF6F8FC),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 56,
+                    color: Colors.redAccent,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Role user tidak ditemukan',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Pastikan document users di Firestore memiliki field role yang valid.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: controller.logout,
+                    child: const Text('Kembali ke Login'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
+      return Scaffold(
+        backgroundColor: const Color(0xFFF6F8FC),
+        appBar: isMobile
+            ? AppBar(
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.white,
+                elevation: 0,
+                title: Text(
                   controller.currentMenuTitle,
                   style: const TextStyle(
                     color: Color(0xFF101828),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-              iconTheme: const IconThemeData(color: Color(0xFF101828)),
-            )
-          : null,
-      drawer: isMobile ? Drawer(child: _buildSidebar()) : null,
-      body: SafeArea(
-        child: Row(
-          children: [
-            if (!isMobile) SizedBox(width: 280, child: _buildSidebar()),
-            Expanded(child: _buildContent(context)),
-          ],
+                iconTheme: const IconThemeData(color: Color(0xFF101828)),
+              )
+            : null,
+        drawer: isMobile ? Drawer(child: _buildSidebar()) : null,
+        body: SafeArea(
+          child: Row(
+            children: [
+              if (!isMobile) SizedBox(width: 280, child: _buildSidebar()),
+              Expanded(child: _buildContent(context)),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildSidebar() {
@@ -158,6 +195,12 @@ class _DashboardState extends State<Dashboard> {
               );
             }),
           ),
+          if (controller.role == Role.admin) ...[
+            const SizedBox(height: 14),
+            DashboardCreatePakarShortcut(
+              onTap: controller.showCreatePakarDialog,
+            ),
+          ],
           const SizedBox(height: 12),
           _buildProfileSection(),
         ],
@@ -192,38 +235,39 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Widget _buildProfileSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE4E7EC)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: const Color(0xFFEFF4FF),
-            child: Text(
-              controller.initialName,
-              style: const TextStyle(
-                color: Color(0xFF155EEF),
-                fontWeight: FontWeight.w700,
+    return Obx(
+      () => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE4E7EC)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: const Color(0xFFEFF4FF),
+              child: Text(
+                controller.initialName,
+                style: const TextStyle(
+                  color: Color(0xFF155EEF),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              controller.profileName,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF101828),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(capitalize(controller.profileName),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF101828),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -331,36 +375,76 @@ class _DashboardState extends State<Dashboard> {
   Widget _buildMainSection() {
     switch (controller.role) {
       case Role.user:
-        return DashboardCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const DashboardSectionTitle(
-                title: 'Mulai Konsultasi',
-                subtitle:
-                    'Gunakan fitur konsultasi untuk mengidentifikasi jenis sampah dan mendapatkan rekomendasi pengelolaan.',
-              ),
-              const SizedBox(height: 20),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
+        if (controller.isLoadingUserDashboard.value) {
+          return const DashboardCard(
+            child: SizedBox(
+              height: 180,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+        return Column(
+          children: [
+            DashboardCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ActionButton(
-                    label: 'Mulai Konsultasi',
-                    icon: Icons.play_circle_outline_rounded,
-                    onTap: controller.goToConsultation,
+                  const DashboardSectionTitle(
+                    title: 'Mulai Konsultasi',
+                    subtitle:
+                        'Gunakan fitur konsultasi untuk mengidentifikasi jenis sampah dan mendapatkan rekomendasi pengelolaan.',
                   ),
-                  ActionButton(
-                    label: 'Lihat Riwayat',
-                    icon: Icons.history_rounded,
-                    onTap: controller.goToHistory,
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      ActionButton(
+                        label: 'Mulai Konsultasi',
+                        icon: Icons.play_circle_outline_rounded,
+                        onTap: controller.goToConsultation,
+                      ),
+                      ActionButton(
+                        label: 'Lihat Riwayat',
+                        icon: Icons.history_rounded,
+                        onTap: controller.goToHistory,
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 20),
+            DashboardCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const DashboardSectionTitle(
+                    title: 'Aktivitas Terbaru',
+                    subtitle: 'Ringkasan hasil konsultasi terbaru Anda.',
+                  ),
+                  const SizedBox(height: 16),
+                  if (controller.userRecentActivities.isEmpty)
+                    const Text('Belum ada riwayat konsultasi.')
+                  else
+                    ...controller.userRecentActivities.map(
+                      (item) => DashboardActivityTile(item: item),
+                    ),
+                ],
+              ),
+            ),
+          ],
         );
+
       case Role.pakar:
+        if (controller.isLoadingPakarDashboard.value) {
+          return const DashboardCard(
+            child: SizedBox(
+              height: 180,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
         return Column(
           children: [
             DashboardCard(
@@ -369,7 +453,8 @@ class _DashboardState extends State<Dashboard> {
                 children: [
                   const DashboardSectionTitle(
                     title: 'Analisis Rule Pakar',
-                    subtitle: 'Visualisasi rule yang paling sering digunakan.',
+                    subtitle:
+                        'Visualisasi hasil rule yang paling sering digunakan.',
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
@@ -385,9 +470,8 @@ class _DashboardState extends State<Dashboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const DashboardSectionTitle(
-                    title: 'Distribusi Hasil Inferensi',
-                    subtitle:
-                        'Komposisi hasil identifikasi berdasarkan knowledge base.',
+                    title: 'Distribusi Knowledge Base',
+                    subtitle: 'Komposisi gejala dan rule aktif/nonaktif.',
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
@@ -403,20 +487,31 @@ class _DashboardState extends State<Dashboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const DashboardSectionTitle(
-                    title: 'Knowledge Base',
-                    subtitle:
-                        'Status data gejala, jenis sampah, dan rule sistem.',
+                    title: 'Aktivitas Terbaru',
+                    subtitle: 'Perubahan terbaru pada gejala dan rule sistem.',
                   ),
                   const SizedBox(height: 16),
-                  ...controller.expertKnowledge.map(
-                    (item) => DashboardActivityTile(item: item),
-                  ),
+                  if (controller.expertKnowledge.isEmpty)
+                    const Text('Belum ada aktivitas terbaru.')
+                  else
+                    ...controller.expertKnowledge.map(
+                      (item) => DashboardActivityTile(item: item),
+                    ),
                 ],
               ),
             ),
           ],
         );
+
       case Role.admin:
+        if (controller.isLoadingAdminDashboard.value) {
+          return const DashboardCard(
+            child: SizedBox(
+              height: 180,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
         return Column(
           children: [
             DashboardCard(
@@ -439,6 +534,7 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
             const SizedBox(height: 20),
+
             DashboardCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -457,6 +553,7 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
             const SizedBox(height: 20),
+
             DashboardCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

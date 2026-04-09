@@ -76,6 +76,7 @@ class _RulesScreenState extends State<RulesScreen> {
                 )
               else ...[
                 TableData<RuleItemModel>(
+                  columnSpacing: 65,
                   items: controller.paginatedItems,
                   columns: [
                     AppTableColumn<RuleItemModel>(
@@ -86,8 +87,7 @@ class _RulesScreenState extends State<RulesScreen> {
                     AppTableColumn<RuleItemModel>(
                       title: 'Kondisi',
                       width: 260,
-                      cellBuilder: (item) => Text(
-                        item.condition,
+                      cellBuilder: (item) => Text(capitalize(item.condition),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -95,8 +95,7 @@ class _RulesScreenState extends State<RulesScreen> {
                     AppTableColumn<RuleItemModel>(
                       title: 'Hasil',
                       width: 180,
-                      cellBuilder: (item) => Text(
-                        item.result,
+                      cellBuilder: (item) => Text(capitalize(item.result),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

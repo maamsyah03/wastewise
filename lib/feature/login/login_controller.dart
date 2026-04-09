@@ -66,28 +66,43 @@ class LoginController extends GetxController {
   }
 
   Future<void> login() async {
+    debugPrint('========== LOGIN START ==========');
+
     isLoading.value = true;
 
     try {
       final email = usernameC.text.trim();
       final password = passwordC.text.trim();
 
+      debugPrint('[LOGIN] Input Email: $email');
+      debugPrint('[LOGIN] Password length: ${password.length}');
+
       final credential = await _authService.signIn(
         email: email,
         password: password,
       );
 
+      debugPrint('[LOGIN] Firebase Auth SUCCESS');
+      debugPrint('[LOGIN] UID: ${credential.user?.uid}');
+      debugPrint('[LOGIN] Email: ${credential.user?.email}');
+
       final uid = credential.user?.uid;
       if (uid == null) {
+        debugPrint('[LOGIN][ERROR] UID NULL');
         throw FirebaseAuthException(
           code: 'user-not-found',
           message: 'User tidak ditemukan',
         );
       }
 
+      debugPrint('[LOGIN] Fetching user role from Firestore...');
       final roleString = await _authService.getUserRole(uid);
 
+      debugPrint('[LOGIN] Role from Firestore: $roleString');
+
       if (roleString == null) {
+        debugPrint('[LOGIN][ERROR] Role NULL di Firestore');
+
         Get.snackbar(
           'Login gagal',
           'Role user tidak ditemukan di database',
@@ -99,6 +114,9 @@ class LoginController extends GetxController {
 
       final role = _mapRole(roleString);
 
+      debugPrint('[LOGIN] Mapping role SUCCESS → ${role.name}');
+      debugPrint('========== LOGIN SUCCESS ==========');
+
       Get.snackbar(
         'Berhasil',
         'Login sebagai ${role.name}',
@@ -109,9 +127,14 @@ class LoginController extends GetxController {
       usernameC.clear();
       passwordC.clear();
 
-      Get.offAll(() => Dashboard(role: role));
+      Get.offAll(() => Dashboard());
     } on FirebaseAuthException catch (e) {
+      debugPrint('[LOGIN][FIREBASE ERROR]');
+      debugPrint('[LOGIN][CODE] ${e.code}');
+      debugPrint('[LOGIN][MESSAGE] ${e.message}');
+
       String message = 'Login gagal';
+
       switch (e.code) {
         case 'invalid-credential':
           message = 'Email atau password salah';
@@ -133,7 +156,11 @@ class LoginController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(16),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[LOGIN][UNKNOWN ERROR]');
+      debugPrint('[LOGIN][ERROR] $e');
+      debugPrint('[LOGIN][STACKTRACE] $stackTrace');
+
       Get.snackbar(
         'Login gagal',
         e.toString(),
@@ -142,6 +169,7 @@ class LoginController extends GetxController {
       );
     } finally {
       isLoading.value = false;
+      debugPrint('========== LOGIN END ==========');
     }
   }
 

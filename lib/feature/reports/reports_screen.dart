@@ -78,7 +78,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: DataTable(
-                    columnSpacing: 270,
+                    columnSpacing: 240,
                     columns: const [
                       DataColumn(label: Text('Tanggal')),
                       DataColumn(label: Text('Kategori')),
