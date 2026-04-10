@@ -46,6 +46,7 @@ class DashboardCreatePakarDialog extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
+
                   TextFieldCustom(
                     hintText: 'Masukkan username',
                     lebel: 'Username',
@@ -70,6 +71,7 @@ class DashboardCreatePakarDialog extends StatelessWidget {
                     errorBorderSide: const BorderSide(color: Colors.red),
                   ),
                   const SizedBox(height: 14),
+
                   TextFieldCustom(
                     hintText: 'Masukkan email',
                     lebel: 'Email',
@@ -175,7 +177,7 @@ class DashboardCreatePakarDialog extends StatelessWidget {
                       TextButton(
                         onPressed: controller.isCreatingPakar.value
                             ? null
-                            : () => Get.back(),
+                            : Get.back,
                         child: const Text('Batal'),
                       ),
                       const SizedBox(width: 10),
@@ -187,7 +189,9 @@ class DashboardCreatePakarDialog extends StatelessWidget {
                             ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
                         )
                             : const Text('Simpan'),
                       ),

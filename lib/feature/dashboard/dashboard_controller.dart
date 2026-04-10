@@ -3,10 +3,11 @@ part of '../../pages.dart';
 class DashboardController extends GetxController {
   late final PageController pageController;
 
+  final pakarUsernameC = TextEditingController();
   final pakarEmailC = TextEditingController();
   final pakarPasswordC = TextEditingController();
   final pakarConfirmPasswordC = TextEditingController();
-  final pakarUsernameC = TextEditingController();
+
   final pakarFormKey = GlobalKey<FormState>();
 
   final isCreatingPakar = false.obs;
@@ -21,12 +22,18 @@ class DashboardController extends GetxController {
   final email = ''.obs;
 
   final AuthService _authService = AuthService.instance;
+  final AdminService _adminService = AdminService.instance;
+  final UserDashboardService _userDashboardService =
+      UserDashboardService.instance;
+  final PakarDashboardService _pakarDashboardService =
+      PakarDashboardService.instance;
 
   Role get role => currentRole.value ?? Role.user;
 
-  /// admin dashboard
+  /// =========================
+  /// ADMIN DASHBOARD
+  /// =========================
   final isLoadingAdminDashboard = false.obs;
-  final AdminService _adminService = AdminService.instance;
 
   final adminTotalUsers = 0.obs;
   final adminTotalConsultations = 0.obs;
@@ -36,6 +43,121 @@ class DashboardController extends GetxController {
   final adminMonitoringItems = <DashboardActivityItem>[].obs;
   final adminConsultationSpots = <FlSpot>[].obs;
   final adminDistributionItems = <DashboardPieItem>[].obs;
+
+  /// =========================
+  /// USER DASHBOARD
+  /// =========================
+  final isLoadingUserDashboard = false.obs;
+
+  final userTotalConsultations = 0.obs;
+  final userMostFrequentResult = '-'.obs;
+  final userRecentActivities = <DashboardActivityItem>[].obs;
+
+  /// =========================
+  /// PAKAR DASHBOARD
+  /// =========================
+  final isLoadingPakarDashboard = false.obs;
+
+  final pakarTotalSymptoms = 0.obs;
+  final pakarTotalRules = 0.obs;
+  final pakarActiveSymptoms = 0.obs;
+  final pakarInactiveSymptoms = 0.obs;
+  final pakarActiveRules = 0.obs;
+  final pakarInactiveRules = 0.obs;
+
+  final pakarKnowledgeItems = <DashboardActivityItem>[].obs;
+  final pakarBarChartItems = <Map<String, dynamic>>[].obs;
+  final pakarPieChartItems = <DashboardPieItem>[].obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    pageController = PageController(initialPage: 0);
+    loadCurrentUserProfile();
+  }
+
+  @override
+  void onClose() {
+    pakarUsernameC.dispose();
+    pakarEmailC.dispose();
+    pakarPasswordC.dispose();
+    pakarConfirmPasswordC.dispose();
+    pageController.dispose();
+    super.onClose();
+  }
+
+  Future<void> loadCurrentUserProfile() async {
+    debugPrint('========== DASHBOARD PROFILE LOAD START ==========');
+
+    try {
+      isLoadingProfile.value = true;
+
+      final user = _authService.currentUser;
+      if (user == null) {
+        debugPrint('[DASHBOARD][ERROR] currentUser NULL');
+        currentRole.value = null;
+        return;
+      }
+
+      debugPrint('[DASHBOARD] UID: ${user.uid}');
+      debugPrint('[DASHBOARD] EMAIL AUTH: ${user.email}');
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      debugPrint('[DASHBOARD] DOC EXISTS: ${doc.exists}');
+      debugPrint('[DASHBOARD] DOC DATA: ${doc.data()}');
+
+      if (!doc.exists) {
+        debugPrint('[DASHBOARD][ERROR] users/${user.uid} tidak ditemukan');
+        currentRole.value = null;
+        return;
+      }
+
+      final data = doc.data() ?? <String, dynamic>{};
+
+      final roleString = (data['role'] ?? '').toString().trim().toLowerCase();
+      final usernameValue = (data['username'] ?? '').toString().trim();
+      final emailValue = (data['email'] ?? user.email ?? '').toString().trim();
+
+      debugPrint('[DASHBOARD] ROLE STRING: $roleString');
+      debugPrint('[DASHBOARD] USERNAME: $usernameValue');
+      debugPrint('[DASHBOARD] EMAIL: $emailValue');
+
+      currentRole.value = _mapRoleStrict(roleString);
+      username.value = usernameValue;
+      email.value = emailValue;
+      selectedIndex.value = 0;
+
+      await _loadDashboardByRole();
+
+      debugPrint('[DASHBOARD] ROLE MAPPED: ${currentRole.value}');
+      debugPrint('========== DASHBOARD PROFILE LOAD SUCCESS ==========');
+    } catch (e, stackTrace) {
+      debugPrint('[DASHBOARD][ERROR] $e');
+      debugPrint('[DASHBOARD][STACKTRACE] $stackTrace');
+      currentRole.value = null;
+    } finally {
+      isLoadingProfile.value = false;
+      debugPrint('========== DASHBOARD PROFILE LOAD END ==========');
+    }
+  }
+
+  Future<void> _loadDashboardByRole() async {
+    switch (role) {
+      case Role.user:
+        await loadUserDashboard();
+        break;
+      case Role.pakar:
+        await loadPakarDashboard();
+        break;
+      case Role.admin:
+        await loadAdminDashboard();
+        break;
+    }
+  }
 
   Future<void> loadAdminDashboard() async {
     if (role != Role.admin) return;
@@ -56,10 +178,10 @@ class DashboardController extends GetxController {
           (summary['resultCounter'] as List<MapEntry<String, int>>?) ?? [];
 
       adminDistributionItems.assignAll(
-        resultCounter.take(4).map((e) {
+        resultCounter.take(4).map((entry) {
           return DashboardPieItem(
-            title: e.key,
-            value: e.value.toDouble(),
+            title: entry.key,
+            value: entry.value.toDouble(),
             color: const Color(0xFF3B82F6),
           );
         }).toList(),
@@ -67,10 +189,10 @@ class DashboardController extends GetxController {
 
       adminConsultationSpots.assignAll(
         resultCounter.asMap().entries.map((entry) {
-          return FlSpot(
-            entry.key.toDouble(),
-            entry.value.value.toDouble(),
-          );
+          final index = entry.key;
+          final item = entry.value;
+
+          return FlSpot(index.toDouble(), item.value.toDouble());
         }).toList(),
       );
 
@@ -102,15 +224,6 @@ class DashboardController extends GetxController {
       debugPrint('========== LOAD ADMIN DASHBOARD END ==========');
     }
   }
-
-  /// user dashboard
-  final isLoadingUserDashboard = false.obs;
-  final UserDashboardService _userDashboardService =
-      UserDashboardService.instance;
-
-  final userTotalConsultations = 0.obs;
-  final userMostFrequentResult = '-'.obs;
-  final userRecentActivities = <DashboardActivityItem>[].obs;
 
   Future<void> loadUserDashboard() async {
     if (role != Role.user) return;
@@ -158,21 +271,6 @@ class DashboardController extends GetxController {
     }
   }
 
-  /// pakar dashboard
-  final isLoadingPakarDashboard = false.obs;
-  final PakarDashboardService _dashboardService =
-      PakarDashboardService.instance;
-  final pakarTotalSymptoms = 0.obs;
-  final pakarTotalRules = 0.obs;
-  final pakarActiveSymptoms = 0.obs;
-  final pakarInactiveSymptoms = 0.obs;
-  final pakarActiveRules = 0.obs;
-  final pakarInactiveRules = 0.obs;
-
-  final pakarKnowledgeItems = <DashboardActivityItem>[].obs;
-  final pakarBarChartItems = <Map<String, dynamic>>[].obs;
-  final pakarPieChartItems = <DashboardPieItem>[].obs;
-
   Future<void> loadPakarDashboard() async {
     if (role != Role.pakar) return;
 
@@ -181,7 +279,7 @@ class DashboardController extends GetxController {
     try {
       isLoadingPakarDashboard.value = true;
 
-      final summary = await _dashboardService.getPakarDashboardSummary();
+      final summary = await _pakarDashboardService.getPakarDashboardSummary();
 
       pakarTotalSymptoms.value = summary['totalSymptoms'] ?? 0;
       pakarTotalRules.value = summary['totalRules'] ?? 0;
@@ -194,10 +292,12 @@ class DashboardController extends GetxController {
           .cast<MapEntry<String, int>>();
 
       pakarBarChartItems.assignAll(
-        resultCounter.take(5).map((e) {
+        resultCounter.take(5).map((entry) {
           return {
-            'label': e.key.length > 12 ? '${e.key.substring(0, 12)}...' : e.key,
-            'value': e.value.toDouble(),
+            'label': entry.key.length > 12
+                ? '${entry.key.substring(0, 12)}...'
+                : entry.key,
+            'value': entry.value.toDouble(),
           };
         }).toList(),
       );
@@ -247,93 +347,6 @@ class DashboardController extends GetxController {
     } finally {
       isLoadingPakarDashboard.value = false;
       debugPrint('========== LOAD PAKAR DASHBOARD END ==========');
-    }
-  }
-
-  @override
-  void onInit() {
-    super.onInit();
-    pageController = PageController(initialPage: 0);
-    loadCurrentUserProfile();
-  }
-
-  @override
-  void onClose() {
-    pakarEmailC.dispose();
-    pakarUsernameC.dispose();
-    pakarPasswordC.dispose();
-    pakarConfirmPasswordC.dispose();
-    pageController.dispose();
-    super.onClose();
-  }
-
-  Future<void> loadCurrentUserProfile() async {
-    debugPrint('========== DASHBOARD PAKAR PROFILE LOAD START ==========');
-
-    try {
-      isLoadingProfile.value = true;
-
-      final user = _authService.currentUser;
-      if (user == null) {
-        debugPrint('[DASHBOARDPAKAR ][ERROR] currentUser NULL');
-        currentRole.value = null;
-        return;
-      }
-
-      debugPrint('[DASHBOARD PAKAR] UID: ${user.uid}');
-      debugPrint('[DASHBOARD PAKAR] EMAIL AUTH: ${user.email}');
-
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      debugPrint('[DASHBOARD PAKAR] DOC EXISTS: ${doc.exists}');
-      debugPrint('[DASHBOARD PAKAR] DOC DATA: ${doc.data()}');
-
-      if (!doc.exists) {
-        debugPrint(
-          '[DASHBOARD PAKAR][ERROR] users/${user.uid} tidak ditemukan',
-        );
-        currentRole.value = null;
-        return;
-      }
-
-      final data = doc.data() ?? {};
-
-      final roleString = (data['role'] ?? '').toString().trim().toLowerCase();
-      final usernameValue = (data['username'] ?? '').toString().trim();
-      final emailValue = (data['email'] ?? user.email ?? '').toString().trim();
-
-      debugPrint('[DASHBOARD PAKAR] ROLE STRING: $roleString');
-      debugPrint('[DASHBOARD PAKAR] USERNAME: $usernameValue');
-      debugPrint('[DASHBOARD PAKAR] EMAIL: $emailValue');
-
-      currentRole.value = _mapRoleStrict(roleString);
-      username.value = usernameValue;
-      email.value = emailValue;
-      selectedIndex.value = 0;
-      if (currentRole.value == Role.pakar) {
-        await loadPakarDashboard();
-      }
-
-      if (currentRole.value == Role.user) {
-        await loadUserDashboard();
-      }
-
-      if (currentRole.value == Role.admin) {
-        await loadAdminDashboard();
-      }
-
-      debugPrint('[DASHBOARD PAKAR] ROLE MAPPED: ${currentRole.value}');
-      debugPrint('========== DASHBOARD PROFILE LOAD SUCCESS ==========');
-    } catch (e, stackTrace) {
-      debugPrint('[DASHBOARD PAKAR][ERROR] $e');
-      debugPrint('[DASHBOARD PAKAR][STACKTRACE] $stackTrace');
-      currentRole.value = null;
-    } finally {
-      isLoadingProfile.value = false;
-      debugPrint('========== DASHBOARD PAKAR PROFILE LOAD END ==========');
     }
   }
 
@@ -481,6 +494,7 @@ class DashboardController extends GetxController {
             footer: 'Riwayat terbaru pada dashboard',
           ),
         ];
+
       case Role.pakar:
         return [
           DashboardStatItem(
@@ -502,6 +516,7 @@ class DashboardController extends GetxController {
             footer: 'Jumlah rule berstatus aktif',
           ),
         ];
+
       case Role.admin:
         return [
           DashboardStatItem(
@@ -633,10 +648,12 @@ class DashboardController extends GetxController {
   }
 
   String? validatePakarEmail(String? value) {
-    if (value == null || value.trim().isEmpty) {
+    final input = value?.trim() ?? '';
+
+    if (input.isEmpty) {
       return 'Email wajib diisi';
     }
-    if (!GetUtils.isEmail(value.trim())) {
+    if (!GetUtils.isEmail(input)) {
       return 'Format email tidak valid';
     }
     return null;
@@ -663,8 +680,8 @@ class DashboardController extends GetxController {
   }
 
   void clearCreatePakarForm() {
-    pakarEmailC.clear();
     pakarUsernameC.clear();
+    pakarEmailC.clear();
     pakarPasswordC.clear();
     pakarConfirmPasswordC.clear();
     isPakarPasswordHidden.value = true;
@@ -673,11 +690,11 @@ class DashboardController extends GetxController {
   }
 
   void togglePakarPasswordVisibility() {
-    isPakarPasswordHidden.value = !isPakarPasswordHidden.value;
+    isPakarPasswordHidden.toggle();
   }
 
   void togglePakarConfirmPasswordVisibility() {
-    isPakarConfirmPasswordHidden.value = !isPakarConfirmPasswordHidden.value;
+    isPakarConfirmPasswordHidden.toggle();
   }
 
   void changePage(int index) {

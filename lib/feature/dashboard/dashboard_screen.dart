@@ -10,10 +10,13 @@ class Dashboard extends StatefulWidget {
 class _DashboardState extends State<Dashboard> {
   late final DashboardController controller;
 
+  static const double _mobileBreakpoint = 760;
+  static const double _tabletBreakpoint = 1100;
+  static const double _sidebarWidth = 280;
+
   @override
   void initState() {
     super.initState();
-
     controller = Get.isRegistered<DashboardController>()
         ? Get.find<DashboardController>()
         : Get.put(DashboardController());
@@ -28,17 +31,23 @@ class _DashboardState extends State<Dashboard> {
   }
 
   bool _isMobile(BuildContext context) =>
-      MediaQuery.of(context).size.width < 760;
+      MediaQuery.of(context).size.width < _mobileBreakpoint;
 
   bool _isTablet(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    return width >= 760 && width < 1100;
+    return width >= _mobileBreakpoint && width < _tabletBreakpoint;
   }
 
   int _gridCount(BuildContext context) {
     if (_isMobile(context)) return 1;
     if (_isTablet(context)) return 2;
     return 3;
+  }
+
+  String _capitalize(String? text) {
+    final value = text?.trim() ?? '';
+    if (value.isEmpty) return '';
+    return value[0].toUpperCase() + value.substring(1);
   }
 
   @override
@@ -110,7 +119,8 @@ class _DashboardState extends State<Dashboard> {
         body: SafeArea(
           child: Row(
             children: [
-              if (!isMobile) SizedBox(width: 280, child: _buildSidebar()),
+              if (!isMobile)
+                SizedBox(width: _sidebarWidth, child: _buildSidebar()),
               Expanded(child: _buildContent(context)),
             ],
           ),
@@ -259,7 +269,8 @@ class _DashboardState extends State<Dashboard> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(capitalize(controller.profileName),
+              child: Text(
+                _capitalize(controller.profileName),
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF101828),
@@ -366,8 +377,7 @@ class _DashboardState extends State<Dashboard> {
         childAspectRatio: _isMobile(context) ? 1.7 : 1.45,
       ),
       itemBuilder: (_, index) {
-        final item = stats[index];
-        return DashboardStatCard(item: item);
+        return DashboardStatCard(item: stats[index]);
       },
     );
   }
@@ -383,6 +393,7 @@ class _DashboardState extends State<Dashboard> {
             ),
           );
         }
+
         return Column(
           children: [
             DashboardCard(
@@ -445,6 +456,7 @@ class _DashboardState extends State<Dashboard> {
             ),
           );
         }
+
         return Column(
           children: [
             DashboardCard(
@@ -512,6 +524,7 @@ class _DashboardState extends State<Dashboard> {
             ),
           );
         }
+
         return Column(
           children: [
             DashboardCard(
@@ -534,7 +547,6 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
             const SizedBox(height: 20),
-
             DashboardCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -553,7 +565,6 @@ class _DashboardState extends State<Dashboard> {
               ),
             ),
             const SizedBox(height: 20),
-
             DashboardCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
