@@ -51,12 +51,13 @@ class _UsersScreenState extends State<UsersScreen> {
                     AppTableColumn<UserManagementItem>(
                       title: 'ID',
                       width: 60,
-                      cellBuilder: (item) => Text( item.id.toString()),
+                      cellBuilder: (item) => Text(item.id.toString()),
                     ),
                     AppTableColumn<UserManagementItem>(
                       title: 'Nama',
                       width: 220,
-                      cellBuilder: (item) => Text( capitalize(item.name),
+                      cellBuilder: (item) => Text(
+                        capitalize(item.name),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -81,20 +82,33 @@ class _UsersScreenState extends State<UsersScreen> {
                       cellBuilder: (item) => Text(item.status),
                     ),
                   ],
-                  actionBuilder: (item) => Row(
-                    children: [
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () => controller.openEditDialog(item),
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () => controller.deleteUser(item),
-                        icon: const Icon(Icons.delete_outline),
-                      ),
-                    ],
-                  ),
+                  actionBuilder: (item) {
+                    final isSelf = controller.isCurrentLoggedInUser(item);
+
+                    return isSelf
+                        ? SizedBox.shrink()
+                        : Row(
+                            children: [
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () =>
+                                    controller.openEditDialog(item),
+                                icon: Icon(
+                                  Icons.edit_outlined,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () => controller.deleteUser(item),
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          );
+                  },
                 ),
                 const SizedBox(height: 16),
                 Pagination(

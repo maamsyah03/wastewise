@@ -2,7 +2,7 @@ part of '../../pages.dart';
 
 class DashboardController extends GetxController {
   late final PageController pageController;
-
+  final isLoggingOut = false.obs;
   final pakarUsernameC = TextEditingController();
   final pakarEmailC = TextEditingController();
   final pakarPasswordC = TextEditingController();
@@ -726,10 +726,69 @@ class DashboardController extends GetxController {
       selectedIndex.value = index;
     }
   }
+  void confirmLogout() {
+    Get.dialog(
+      Obx(
+            () => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Konfirmasi Logout',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: const Text(
+            'Apakah Anda yakin ingin keluar dari akun ini?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoggingOut.value ? null : () => Get.back(),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: isLoggingOut.value ? null : logout,
+              child: isLoggingOut.value
+                  ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+                  : const Text('Logout'),
+            ),
+          ],
+        ),
+      ),
+      barrierDismissible: false,
+    );
+  }
+  Future<void> logout() async {
+    debugPrint('========== LOGOUT START ==========');
 
-  void logout() {
-    _authService.signOut().whenComplete(() {
+    try {
+      isLoggingOut.value = true;
+
+      await _authService.signOut();
+
+      debugPrint('[LOGOUT] SUCCESS');
+
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+
       Get.offAll(() => const Login());
-    });
+    } catch (e, stackTrace) {
+      debugPrint('[LOGOUT][ERROR] $e');
+      debugPrint('[LOGOUT][STACKTRACE] $stackTrace');
+
+      Get.snackbar(
+        'Gagal',
+        'Logout gagal, silakan coba lagi.',
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+    } finally {
+      isLoggingOut.value = false;
+      debugPrint('========== LOGOUT END ==========');
+    }
   }
 }

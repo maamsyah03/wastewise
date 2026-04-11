@@ -345,7 +345,7 @@ class _DashboardState extends State<Dashboard> {
           ),
         ),
         if (!_isMobile(context))
-          DashboardHeaderButton(icon: Icons.logout, onTap: controller.logout),
+          DashboardHeaderButton(icon: Icons.logout, onTap: controller.confirmLogout),
       ],
     );
   }

@@ -22,10 +22,12 @@ class UsersController extends GetxController {
   final List<String> statusOptions = const ['Aktif', 'Nonaktif'];
 
   final AdminService _adminService = AdminService.instance;
-
+  final AuthService _authService = AuthService.instance;
+  final currentUserUid = ''.obs;
   @override
   void onInit() {
     super.onInit();
+    currentUserUid.value = _authService.currentUser?.uid ?? '';
     loadInitialData();
     searchC.addListener(_handleSearchChanged);
   }
@@ -70,7 +72,9 @@ class UsersController extends GetxController {
   void _handleSearchChanged() {
     currentPage.value = 1;
   }
-
+  bool isCurrentLoggedInUser(UserManagementItem item) {
+    return item.docId == currentUserUid.value;
+  }
   String get keyword => searchC.text.trim().toLowerCase();
 
   List<UserManagementItem> get filteredUsers {
@@ -261,6 +265,15 @@ class UsersController extends GetxController {
   }
 
   void openEditDialog(UserManagementItem item) {
+    if (isCurrentLoggedInUser(item)) {
+      Get.snackbar(
+        'Info',
+        'Akun yang sedang login tidak dapat diedit dari halaman ini.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
     nameC.text = item.name;
     usernameC.text = item.email;
     selectedRole.value = item.role;
@@ -268,7 +281,7 @@ class UsersController extends GetxController {
 
     Get.dialog(
       Obx(
-        () => FormDialog(
+            () => FormDialog(
           title: 'Edit Pengguna',
           subtitle: 'Perbarui informasi pengguna yang dipilih.',
           submitLabel: 'Update',
@@ -283,6 +296,15 @@ class UsersController extends GetxController {
   }
 
   Future<void> updateUser(UserManagementItem item) async {
+    if (isCurrentLoggedInUser(item)) {
+      Get.snackbar(
+        'Info',
+        'Akun yang sedang login tidak dapat diedit.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
     final isValid = formKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
@@ -319,6 +341,15 @@ class UsersController extends GetxController {
   }
 
   void deleteUser(UserManagementItem item) {
+    if (isCurrentLoggedInUser(item)) {
+      Get.snackbar(
+        'Info',
+        'Akun yang sedang login tidak dapat dihapus.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
     Get.dialog(
       AlertDialog(
         title: const Text('Hapus Pengguna'),
