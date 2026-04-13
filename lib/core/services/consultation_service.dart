@@ -3,7 +3,7 @@ part of '../../pages.dart';
 class ConsultationService {
   ConsultationService._();
 
-  static final instance = ConsultationService._();
+  static final ConsultationService instance = ConsultationService._();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -11,10 +11,12 @@ class ConsultationService {
     final snapshot = await _firestore
         .collection('symptoms')
         .where('status', isEqualTo: 'Aktif')
+        .orderBy('createdAt', descending: false)
         .get();
 
     return snapshot.docs
-        .map((e) => (e.data()['name'] ?? '').toString())
+        .map((e) => (e.data()['name'] ?? '').toString().trim())
+        .where((name) => name.isNotEmpty)
         .toList();
   }
 
@@ -24,7 +26,12 @@ class ConsultationService {
         .where('status', isEqualTo: 'Aktif')
         .get();
 
-    return snapshot.docs.map((e) => e.data()).toList();
+    return snapshot.docs.map((e) {
+      return {
+        'docId': e.id,
+        ...e.data(),
+      };
+    }).toList();
   }
 
   Future<void> saveConsultation({
@@ -62,10 +69,10 @@ class ConsultationService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs.map((e) {
-            final data = e.data();
-            return {...data, 'id': e.id};
-          }).toList();
-        });
+      return snapshot.docs.map((e) {
+        final data = e.data();
+        return {...data, 'id': e.id};
+      }).toList();
+    });
   }
 }

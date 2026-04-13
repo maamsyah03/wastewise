@@ -86,7 +86,8 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                       AppTableColumn<SymptomItem>(
                         title: 'Nama Gejala',
                         width: 260,
-                        cellBuilder: (item) => Text(capitalize(item.name),
+                        cellBuilder: (item) => Text(
+                          capitalize(item.name),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -132,6 +133,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
       hintText: 'Cari nama gejala atau status...',
       lebel: '',
       controller: controller.searchC,
+      onChanged: controller.onSearchChanged,
       cursorHeight: 20,
       cursorColor: Colors.black87,
       fillColor: const Color(0xFFF8FAFC),

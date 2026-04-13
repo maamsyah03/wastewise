@@ -8,7 +8,6 @@ class ConsultationController extends GetxController {
 
   final selectedSymptoms = <String>[].obs;
   final result = Rxn<ConsultationResult>();
-
   final symptoms = <String>[].obs;
 
   final ConsultationService _service = ConsultationService.instance;
@@ -26,13 +25,34 @@ class ConsultationController extends GetxController {
     try {
       isLoading.value = true;
 
-      symptoms.value = await _service.getSymptoms();
-      rules = await _service.getRules();
-    } catch (e) {
-      Get.snackbar('Error', 'Gagal load data');
+      final fetchedSymptoms = await _service.getSymptoms();
+      final fetchedRules = await _service.getRules();
+
+      symptoms.assignAll(
+        fetchedSymptoms
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList(),
+      );
+
+      rules = fetchedRules;
+
+      selectedSymptoms.removeWhere((item) => !symptoms.contains(item));
+    } catch (e, stackTrace) {
+      debugPrint('[CONSULTATION][LOAD ERROR] $e');
+      debugPrint('[CONSULTATION][STACKTRACE] $stackTrace');
+      Get.snackbar(
+        'Error',
+        'Gagal load data konsultasi',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<void> refreshData() async {
+    await loadInitialData();
   }
 
   List<String> get filteredSymptoms {
@@ -52,7 +72,11 @@ class ConsultationController extends GetxController {
 
   Future<void> submitConsultation() async {
     if (selectedSymptoms.isEmpty) {
-      Get.snackbar('Validasi', 'Pilih minimal satu gejala.');
+      Get.snackbar(
+        'Validasi',
+        'Pilih minimal satu gejala.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
       return;
     }
 
@@ -72,25 +96,30 @@ class ConsultationController extends GetxController {
       if (user != null) {
         await _service.saveConsultation(
           userId: user.uid,
-          symptoms: selectedSymptoms,
+          symptoms: selectedSymptoms.toList(),
           result: res.category,
           recommendation: res.recommendation,
         );
 
-        debugPrint('[CONSULTATION] consultation saved to firestore');
-
         if (Get.isRegistered<DashboardController>()) {
-          debugPrint('[CONSULTATION] refreshing DashboardController...');
           await Get.find<DashboardController>().loadUserDashboard();
         }
       }
 
-      Get.snackbar('Berhasil', 'Hasil konsultasi disimpan');
+      Get.snackbar(
+        'Berhasil',
+        'Hasil konsultasi disimpan',
+        snackPosition: SnackPosition.BOTTOM,
+      );
       debugPrint('========== SUBMIT CONSULTATION SUCCESS ==========');
     } catch (e, stackTrace) {
       debugPrint('[CONSULTATION][ERROR] $e');
       debugPrint('[CONSULTATION][STACKTRACE] $stackTrace');
-      Get.snackbar('Error', 'Gagal proses konsultasi');
+      Get.snackbar(
+        'Error',
+        'Gagal proses konsultasi',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       isSubmitting.value = false;
       debugPrint('========== SUBMIT CONSULTATION END ==========');
@@ -100,16 +129,16 @@ class ConsultationController extends GetxController {
   ConsultationResult _generateResultFromRules(List<String> selected) {
     for (final rule in rules) {
       final condition = (rule['condition'] ?? '').toString().toLowerCase();
-      final result = (rule['result'] ?? '').toString();
+      final resultValue = (rule['result'] ?? '').toString();
 
       final matched = selected.every(
-        (symptom) => condition.contains(symptom.toLowerCase()),
+            (symptom) => condition.contains(symptom.toLowerCase()),
       );
 
       if (matched) {
         return ConsultationResult(
           title: 'Hasil Konsultasi',
-          category: result,
+          category: resultValue,
           recommendation: 'Rekomendasi berdasarkan rule pakar',
           selectedSymptoms: selected,
         );

@@ -98,14 +98,14 @@ class _UsersScreenState extends State<UsersScreen> {
                                   color: Colors.grey,
                                 ),
                               ),
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () => controller.deleteUser(item),
-                                icon: Icon(
-                                  Icons.delete_outline,
-                                  color: Colors.grey,
-                                ),
-                              ),
+                              // IconButton(
+                              //   visualDensity: VisualDensity.compact,
+                              //   onPressed: () => controller.deleteUser(item),
+                              //   icon: Icon(
+                              //     Icons.delete_outline,
+                              //     color: Colors.grey,
+                              //   ),
+                              // ),
                             ],
                           );
                   },

@@ -9,6 +9,7 @@ class SymptomsController extends GetxController {
   final isSubmitting = false.obs;
   final currentPage = 1.obs;
   final selectedStatus = 'Aktif'.obs;
+  final searchKeyword = ''.obs;
 
   final int pageSize = 5;
   final items = <SymptomItem>[].obs;
@@ -21,7 +22,6 @@ class SymptomsController extends GetxController {
   void onInit() {
     super.onInit();
     loadInitialData();
-    searchC.addListener(_onSearchChanged);
   }
 
   Future<void> loadInitialData() async {
@@ -57,12 +57,13 @@ class SymptomsController extends GetxController {
     }
   }
 
-  void _onSearchChanged() {
+  void onSearchChanged(String value) {
+    searchKeyword.value = value.trim().toLowerCase();
     currentPage.value = 1;
   }
 
   List<SymptomItem> get filteredItems {
-    final keyword = searchC.text.trim().toLowerCase();
+    final keyword = searchKeyword.value;
     if (keyword.isEmpty) return items;
 
     return items.where((item) {
@@ -126,7 +127,7 @@ class SymptomsController extends GetxController {
 
   Widget _buildFormBody() {
     return Obx(
-      () => Column(
+          () => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextFieldCustom(
@@ -156,8 +157,8 @@ class SymptomsController extends GetxController {
             items: statusOptions
                 .map(
                   (status) =>
-                      DropdownMenuItem(value: status, child: Text(status)),
-                )
+                  DropdownMenuItem(value: status, child: Text(status)),
+            )
                 .toList(),
             onChanged: setStatus,
             decoration: InputDecoration(
@@ -179,7 +180,7 @@ class SymptomsController extends GetxController {
 
     Get.dialog(
       Obx(
-        () => FormDialog(
+            () => FormDialog(
           title: 'Tambah Gejala',
           subtitle: 'Lengkapi data gejala yang akan digunakan sistem.',
           submitLabel: 'Simpan',
@@ -199,7 +200,7 @@ class SymptomsController extends GetxController {
 
     Get.dialog(
       Obx(
-        () => FormDialog(
+            () => FormDialog(
           title: 'Edit Gejala',
           subtitle: 'Perbarui data gejala yang dipilih.',
           submitLabel: 'Update',
@@ -300,31 +301,53 @@ class SymptomsController extends GetxController {
         title: const Text('Hapus Gejala'),
         content: Text('Yakin ingin menghapus gejala "${item.name}"?'),
         actions: [
-          TextButton(onPressed: Get.back, child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Batal'),
+          ),
           ElevatedButton(
             onPressed: () async {
               try {
-                await _symptomService.deleteSymptom(item.docId);
+                final docId = item.docId.trim();
+
+                debugPrint('========== DELETE ITEM CONTROLLER START ==========');
+                debugPrint('[SYMPTOMS][DELETE] name=${item.name}');
+                debugPrint('[SYMPTOMS][DELETE] docId=$docId');
+
+                if (docId.isEmpty) {
+                  throw Exception('docId gejala kosong');
+                }
+
+                await _symptomService.deleteSymptom(docId);
+
+                if (Get.isDialogOpen ?? false) {
+                  Get.back();
+                }
+
                 await loadInitialData();
 
                 if (currentPage.value > totalPages) {
                   currentPage.value = totalPages;
                 }
 
-                Get.back();
                 Get.snackbar(
                   'Berhasil',
                   'Gejala ${item.name} dihapus.',
                   snackPosition: SnackPosition.BOTTOM,
                 );
+
+                debugPrint('========== DELETE ITEM CONTROLLER SUCCESS ==========');
               } catch (e, stackTrace) {
                 debugPrint('[SYMPTOMS][DELETE ERROR] $e');
                 debugPrint('[SYMPTOMS][STACKTRACE] $stackTrace');
 
-                Get.back();
+                if (Get.isDialogOpen ?? false) {
+                  Get.back();
+                }
+
                 Get.snackbar(
                   'Gagal',
-                  'Gejala gagal dihapus.',
+                  'Gejala gagal dihapus: $e',
                   snackPosition: SnackPosition.BOTTOM,
                 );
               }
@@ -339,7 +362,6 @@ class SymptomsController extends GetxController {
 
   @override
   void onClose() {
-    searchC.removeListener(_onSearchChanged);
     searchC.dispose();
     symptomC.dispose();
     super.onClose();

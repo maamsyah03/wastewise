@@ -6,6 +6,7 @@ import 'package:wastewise/pages.dart';
 
 import 'firebase_options.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -38,20 +39,16 @@ class AuthGate extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            backgroundColor: Color(0xFFF6F8FC),
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
         final user = snapshot.data;
-
-        if (user != null) {
-          return const Dashboard();
+        if (user == null) {
+          return const Login();
         }
 
-        return const Login();
+        return const Dashboard();
       },
     );
   }

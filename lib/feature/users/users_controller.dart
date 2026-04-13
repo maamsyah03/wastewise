@@ -154,6 +154,7 @@ class UsersController extends GetxController {
           TextFieldCustom(
             hintText: 'Masukkan nama lengkap',
             lebel: 'Nama',
+            readOnly: true,
             controller: nameC,
             validator: validateName,
             cursorHeight: 20,
@@ -221,36 +222,36 @@ class UsersController extends GetxController {
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          DropdownButtonFormField<String>(
-            value: selectedStatus.value,
-            items: statusOptions
-                .map(
-                  (status) =>
-                      DropdownMenuItem(value: status, child: Text(status)),
-                )
-                .toList(),
-            onChanged: setStatus,
-            decoration: InputDecoration(
-              labelText: 'Status',
-              filled: true,
-              fillColor: const Color(0xFFF8FAFC),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: Color(0xFFD0D5DD)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(
-                  color: Color(0xFF0F5EF7),
-                  width: 1.4,
-                ),
-              ),
-            ),
-          ),
+          // const SizedBox(height: 14),
+          // DropdownButtonFormField<String>(
+          //   value: selectedStatus.value,
+          //   items: statusOptions
+          //       .map(
+          //         (status) =>
+          //             DropdownMenuItem(value: status, child: Text(status)),
+          //       )
+          //       .toList(),
+          //   onChanged: setStatus,
+          //   decoration: InputDecoration(
+          //     labelText: 'Status',
+          //     filled: true,
+          //     fillColor: const Color(0xFFF8FAFC),
+          //     border: OutlineInputBorder(
+          //       borderRadius: BorderRadius.circular(16),
+          //     ),
+          //     enabledBorder: OutlineInputBorder(
+          //       borderRadius: BorderRadius.circular(16),
+          //       borderSide: const BorderSide(color: Color(0xFFD0D5DD)),
+          //     ),
+          //     focusedBorder: OutlineInputBorder(
+          //       borderRadius: BorderRadius.circular(16),
+          //       borderSide: const BorderSide(
+          //         color: Color(0xFF0F5EF7),
+          //         width: 1.4,
+          //       ),
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );

@@ -15,10 +15,13 @@ class SymptomService {
 
     final snapshot = await _symptomsRef
         .orderBy('createdAt', descending: false)
-        .get();
+        .get(const GetOptions(source: Source.server));
 
     final results = snapshot.docs.map((doc) {
-      return {'docId': doc.id, ...doc.data()};
+      return {
+        'docId': doc.id,
+        ...doc.data(),
+      };
     }).toList();
 
     debugPrint('[SYMPTOMS] total: ${results.length}');
@@ -38,8 +41,8 @@ class SymptomService {
     debugPrint('[SYMPTOM] createdBy: $createdBy');
 
     await _symptomsRef.add({
-      'name': name,
-      'status': status,
+      'name': name.trim(),
+      'status': status.trim(),
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'createdBy': createdBy,
@@ -53,14 +56,20 @@ class SymptomService {
     required String name,
     required String status,
   }) async {
+    final cleanDocId = docId.trim();
+
     debugPrint('========== UPDATE SYMPTOM START ==========');
-    debugPrint('[SYMPTOM] docId: $docId');
+    debugPrint('[SYMPTOM] docId: $cleanDocId');
     debugPrint('[SYMPTOM] name: $name');
     debugPrint('[SYMPTOM] status: $status');
 
-    await _symptomsRef.doc(docId).update({
-      'name': name,
-      'status': status,
+    if (cleanDocId.isEmpty) {
+      throw Exception('docId gejala kosong');
+    }
+
+    await _symptomsRef.doc(cleanDocId).update({
+      'name': name.trim(),
+      'status': status.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
@@ -68,11 +77,34 @@ class SymptomService {
   }
 
   Future<void> deleteSymptom(String docId) async {
+    final cleanDocId = docId.trim();
+
     debugPrint('========== DELETE SYMPTOM START ==========');
-    debugPrint('[SYMPTOM] docId: $docId');
+    debugPrint('[SYMPTOM] docId: $cleanDocId');
 
-    await _symptomsRef.doc(docId).delete();
+    if (cleanDocId.isEmpty) {
+      throw Exception('docId gejala kosong');
+    }
 
+    final docRef = _symptomsRef.doc(cleanDocId);
+    final docSnap = await docRef.get(const GetOptions(source: Source.server));
+
+    debugPrint('[SYMPTOM] exists before delete: ${docSnap.exists}');
+
+    if (!docSnap.exists) {
+      throw Exception('Dokumen gejala tidak ditemukan di Firestore');
+    }
+
+    await docRef.delete();
+
+    final checkAfterDelete =
+    await docRef.get(const GetOptions(source: Source.server));
+
+    debugPrint('[SYMPTOM] exists after delete: ${checkAfterDelete.exists}');
     debugPrint('========== DELETE SYMPTOM END ==========');
+
+    if (checkAfterDelete.exists) {
+      throw Exception('Dokumen gejala gagal terhapus dari Firestore');
+    }
   }
 }

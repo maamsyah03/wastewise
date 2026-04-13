@@ -102,18 +102,22 @@ class _DashboardState extends State<Dashboard> {
         backgroundColor: const Color(0xFFF6F8FC),
         appBar: isMobile
             ? AppBar(
-                backgroundColor: Colors.white,
-                surfaceTintColor: Colors.white,
-                elevation: 0,
-                title: Text(
-                  controller.currentMenuTitle,
-                  style: const TextStyle(
-                    color: Color(0xFF101828),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                iconTheme: const IconThemeData(color: Color(0xFF101828)),
-              )
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          elevation: 0,
+          title: Text(
+            controller.currentMenuTitle,
+            style: const TextStyle(
+              color: Color(0xFF101828),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          iconTheme: const IconThemeData(color: Color(0xFF101828)),
+          actions: [
+            DashboardHeaderButton(icon: Icons.logout, onTap: controller.confirmLogout),
+            const SizedBox(width: 15),
+          ],
+        )
             : null,
         drawer: isMobile ? Drawer(child: _buildSidebar()) : null,
         body: SafeArea(

@@ -10,6 +10,34 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  Future<Map<String, dynamic>?> getUserProfile(String uid) async {
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get(const GetOptions(source: Source.server));
+
+      return doc.data();
+    } catch (e) {
+      debugPrint('[AUTH][getUserProfile][SERVER ERROR] $e');
+
+      final doc = await _firestore.collection('users').doc(uid).get();
+      return doc.data();
+    }
+  }
+
+  Future<String?> getUserRole(String uid) async {
+    final data = await getUserProfile(uid);
+    return data?['role']?.toString();
+  }
+
+  Future<String?> getUserStatus(String uid) async {
+    final data = await getUserProfile(uid);
+    return data?['status']?.toString();
+  }
+
   Future<UserCredential> signUp({
     required String email,
     required String password,
@@ -17,7 +45,7 @@ class AuthService {
     required String role,
   }) async {
     final credential = await _auth.createUserWithEmailAndPassword(
-      email: email,
+      email: email.trim(),
       password: password,
     );
 
@@ -25,10 +53,12 @@ class AuthService {
     if (user != null) {
       await _firestore.collection('users').doc(user.uid).set({
         'uid': user.uid,
-        'email': email,
-        'username': username,
-        'role': role,
+        'email': email.trim(),
+        'username': username.trim(),
+        'role': role.trim().toLowerCase(),
+        'status': 'Aktif',
         'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
     }
 
@@ -39,32 +69,10 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    return _auth.signInWithEmailAndPassword(email: email, password: password);
-  }
-
-  Future<String?> getUserRole(String uid) async {
-    debugPrint('========== GET USER ROLE START ==========');
-    debugPrint('[ROLE] UID: $uid');
-
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get();
-
-    debugPrint('[ROLE] EXISTS: ${doc.exists}');
-    debugPrint('[ROLE] DATA: ${doc.data()}');
-
-    if (!doc.exists) {
-      debugPrint('[ROLE][ERROR] Document users/$uid tidak ditemukan');
-      debugPrint('========== GET USER ROLE END ==========');
-      return null;
-    }
-
-    final role = doc.data()?['role'] as String?;
-    debugPrint('[ROLE] role field: $role');
-    debugPrint('========== GET USER ROLE END ==========');
-
-    return role;
+    return _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
   }
 
   Future<void> createPakarByAdmin({
@@ -81,7 +89,7 @@ class AuthService {
       final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
 
       final credential = await secondaryAuth.createUserWithEmailAndPassword(
-        email: email,
+        email: email.trim(),
         password: password,
       );
 
@@ -92,11 +100,12 @@ class AuthService {
 
       await _firestore.collection('users').doc(user.uid).set({
         'uid': user.uid,
-        'username': username,
-        'email': email,
+        'username': username.trim(),
+        'email': email.trim(),
         'role': 'pakar',
         'status': 'Aktif',
         'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       await secondaryAuth.signOut();

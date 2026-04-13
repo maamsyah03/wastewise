@@ -17,6 +17,7 @@ class _ConsultationScreenState extends State<ConsultationScreen> {
         ? Get.find<ConsultationController>()
         : Get.put(ConsultationController());
 
+    controller.refreshData();
     controller.searchC.addListener(_refresh);
   }
 
